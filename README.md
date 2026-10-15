@@ -15,11 +15,14 @@
 | 方式 | 命令 / 链接 | 需要什么 |
 |---|---|---|
 | **在线工作台** | <https://litchidzx.github.io/target-audit/> | 只要浏览器 |
+| **魔搭创空间** | <https://www.modelscope.cn/studios/litchidzx/target-audit> | 只要浏览器（国内访问更快） |
 | **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
 | **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
 
 **只想看看它是什么**：直接打开在线工作台，左侧点任意靶点，右侧就是完整审计卡。
 不需要注册、不需要安装、不需要联网。
+
+**两个站点内容完全相同**，是同一套静态文件分别部署在国内与国外两个平台。
 
 ---
 
@@ -27,11 +30,16 @@
 
 ### 方式一：在线工作台（零安装）
 
-打开 <https://litchidzx.github.io/target-audit/>，左侧挑一个靶点，或直接搜 `KRAS`。
+打开 <https://litchidzx.github.io/target-audit/> 或
+<https://www.modelscope.cn/studios/litchidzx/target-audit>，
+左侧挑一个靶点，或直接搜 `KRAS`。
 用癌种和规则标签筛选，例如只看 `R1` 治疗窗狭窄命中的靶点。
 
 放在本地也能用：下载仓库后双击 `docs/index.html`。页面不依赖网络，
 所有结果在构建时已经算好并固化。
+
+> **注意工作台里能搜什么。** 搜索框只在已审计的靶点里筛选，**不能审计新基因**。
+> 要跑一个新靶点，用下面方式二。
 
 ### 方式二：本地审计任意靶点（约两分钟）
 
