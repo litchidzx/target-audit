@@ -93,7 +93,15 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
             params = parse_qs(parsed.query)
 
             if parsed.path == "/style.css":
-                self._send(full_css(), ctype="text/css; charset=utf-8")
+                try:
+                    self._send(full_css(), ctype="text/css; charset=utf-8")
+                except Exception as exc:  # noqa: BLE001
+                    # 样式读不到时不能直接断连 —— 浏览器会显示成"服务器无响应"，
+                    # 而真正的原因（例如打包后资源路径不对）就完全看不见了。
+                    sys.stderr.write(f"样式读取失败：{exc!r}\n")
+                    self._send(
+                        f"/* 样式读取失败：{exc} */", ctype="text/css; charset=utf-8"
+                    )
                 return
             if parsed.path == "/health":
                 self._send("ok", ctype="text/plain; charset=utf-8")
@@ -157,6 +165,17 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
     return Handler
 
 
+class _Server(ThreadingHTTPServer):
+    """在 Windows 上必须关掉 SO_REUSEADDR。
+
+    默认开启时，Windows 允许两个进程同时绑定同一个端口 —— 表面上第二次启动
+    也"成功"了，实际请求会被两个版本的服务随机分流，排查起来极其困难
+    （同一个地址一会儿正常一会儿报错）。关掉之后端口被占用会直接报错。
+    """
+
+    allow_reuse_address = not sys.platform.startswith("win")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="靶点尽调本地网页界面")
     parser.add_argument("--host", default="127.0.0.1")
@@ -169,7 +188,16 @@ def main(argv: list[str] | None = None) -> int:
     cancers = cancer_choices(args.mock)
     handler = make_handler(args.mock, cancers)
 
-    server = ThreadingHTTPServer((args.host, args.port), handler)
+    try:
+        server = _Server((args.host, args.port), handler)
+    except OSError as exc:
+        print(
+            f"无法绑定 {args.host}:{args.port} —— {exc}\n"
+            f"  端口可能已被占用（例如先前启动的实例还没退出）。\n"
+            f"  换一个端口：python run_web.py --port {args.port + 1}",
+            file=sys.stderr,
+        )
+        return 1
     url = f"http://{args.host}:{args.port}/"
     print(f"靶点尽调 · 实时审计已启动：{url}")
     if args.mock:

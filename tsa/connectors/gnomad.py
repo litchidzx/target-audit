@@ -33,12 +33,13 @@ from typing import Any
 import urllib.request
 
 from ..normalize import make_record
+from ..paths import data_root
 from ..schema import Dimension, EvidenceRecord
 from .base import Connector, ConnectorNotConfigured, HttpClient
 
 log = logging.getLogger("tsa.connectors.gnomad")
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "gnomad"
+DATA_DIR = data_root() / "gnomad"
 CONSTRAINT_FILE = DATA_DIR / "gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz"
 CONSTRAINT_URL = (
     "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/"

@@ -18,9 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..paths import data_root
 from ..schema import Dimension, EvidenceRecord
 
-DEFAULT_CACHE = Path(__file__).resolve().parents[2] / "data" / "cache"
+DEFAULT_CACHE = data_root() / "cache"
 USER_AGENT = "target-selectivity-audit/0.1 (research prototype)"
 
 # 设为 1 时只读缓存、完全不发网络请求。

@@ -23,9 +23,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .dimensions import DIMENSION_META, label, short_label
+from .paths import asset_path
 from .schema import CAUSE_LABEL_ZH, AuditCard, Dimension, EvidenceRecord, to_plain
 
-ASSETS = Path(__file__).resolve().parent / "webassets"
+ASSETS = asset_path("tsa", "webassets")
 
 CANCER_ZH = {
     "PAAD": "胰腺癌", "LUAD": "肺腺癌", "LUSC": "肺鳞癌", "COAD": "结肠癌",

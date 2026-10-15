@@ -84,6 +84,24 @@ docker build -t target-audit .
 docker run --rm target-audit audit KRAS --cancer LUAD --mock
 ```
 
+### 方式四：下载可执行程序（Windows，不需要装 Python）
+
+从 [Releases](../../releases) 下载 `target-audit-windows-x64.zip`，解压后
+**双击 `target-audit.exe`**，浏览器会自动打开。
+
+Python 是解释型语言，源码必须有解释器才能运行；打包版把解释器和依赖一起装了进去，
+所以使用者不需要任何环境准备——这也是普通软件能双击运行的原因。
+
+自己构建：
+
+```bash
+python scripts/build_exe.py            # 目录模式，产出压缩包
+python scripts/build_exe.py --onefile  # 单文件 exe
+```
+
+参考数据不打进包里。把 DepMap 文件放到 exe 旁边的 `data/depmap/` 即可启用
+肿瘤侧两个维度；gnomAD 约束表会在首次查询时自动下载。
+
 ### 环境要求
 
 - Python 3.10 或更高（开发环境为 3.14）

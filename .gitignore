@@ -15,3 +15,8 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.log
+
+# PyInstaller 构建产物
+build/
+dist/
+*.spec

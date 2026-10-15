@@ -43,10 +43,11 @@ from statistics import median
 from typing import Any, Iterable, Sequence
 
 from ..normalize import make_record, percentile_rank
+from ..paths import data_root
 from ..schema import Dimension, EvidenceRecord
 from .base import Connector, ConnectorNotConfigured
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "depmap"
+DATA_DIR = data_root() / "depmap"
 GENE_EFFECT_FILE = DATA_DIR / "CRISPRGeneEffect.csv"
 MODEL_FILE = DATA_DIR / "Model.csv"
 

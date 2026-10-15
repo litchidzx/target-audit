@@ -13,12 +13,11 @@ from __future__ import annotations
 
 from html import escape as esc
 
-from pathlib import Path
-
 from .dimensions import DIMENSION_META, label, short_label
+from .paths import asset_path
 from .schema import CAUSE_LABEL_ZH, AuditCard, EvidenceRecord, Group, Polarity
 
-ASSETS = Path(__file__).resolve().parent / "webassets"
+ASSETS = asset_path("tsa", "webassets")
 
 GROUP_TITLE = {
     Group.TUMOR: "肿瘤侧 · 有多重要、有多独特",
