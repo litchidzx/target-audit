@@ -24,13 +24,19 @@ from __future__ import annotations
 import csv
 import gzip
 import io
+import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import urllib.request
+
 from ..normalize import make_record
 from ..schema import Dimension, EvidenceRecord
 from .base import Connector, ConnectorNotConfigured, HttpClient
+
+log = logging.getLogger("tsa.connectors.gnomad")
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "gnomad"
 CONSTRAINT_FILE = DATA_DIR / "gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz"
@@ -38,6 +44,11 @@ CONSTRAINT_URL = (
     "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/"
     "constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz"
 )
+
+# 首次使用时自动下载约束表。这个文件只有 4.6MB，比很多网页的素材还小，
+# 让使用者为此专门跑一条命令是不必要的门槛。DepMap 那个 400MB 不做自动下载，
+# 体积太大，而且跑不到也不影响系统降级运行。
+AUTODOWNLOAD_ENV = "TSA_NO_AUTODOWNLOAD"
 
 # pLI 高于此值视为对功能缺失不耐受
 PLI_INTOLERANT = 0.9
@@ -66,15 +77,51 @@ def _to_float(value: str | None) -> float | None:
         return None
 
 
+def ensure_constraint_file(path: Path = CONSTRAINT_FILE, *, allow_download: bool = True) -> Path:
+    """确保本地有约束表；缺了就自动下载一次。
+
+    这是本项目唯一会在运行时写磁盘的地方，只为了替使用者省掉一条手工命令。
+    设置 TSA_NO_AUTODOWNLOAD=1 可以关掉自动下载，改由
+    scripts/fetch_reference_data.py 显式获取。
+    """
+    if path.exists():
+        return path
+    if not allow_download or os.environ.get(AUTODOWNLOAD_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        raise ConnectorNotConfigured(
+            f"缺少 {path}。运行 python scripts/fetch_reference_data.py 下载。"
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log.warning("首次使用 gnomAD，正在下载约束表（约 4.6MB）……")
+    request = urllib.request.Request(
+        CONSTRAINT_URL, headers={"User-Agent": "target-selectivity-audit/0.1"}
+    )
+    tmp = path.with_suffix(path.suffix + ".part")
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            tmp.write_bytes(response.read())
+        tmp.replace(path)
+    except Exception as exc:  # noqa: BLE001
+        tmp.unlink(missing_ok=True)
+        raise ConnectorNotConfigured(
+            f"gnomAD 约束表下载失败：{exc}\n"
+            f"可以稍后重试，或手动下载后放到 {path}：\n  {CONSTRAINT_URL}"
+        ) from exc
+    log.warning("gnomAD 约束表已就绪（%.1f MB）", path.stat().st_size / 1e6)
+    return path
+
+
 def _load(path: Path = CONSTRAINT_FILE) -> None:
     """把约束表读进内存缓存。只做一次。"""
     global _CACHE, _LOEUF_DISTRIBUTION
     if _CACHE:
         return
-    if not path.exists():
-        raise ConnectorNotConfigured(
-            f"缺少 {path}。运行 python scripts/fetch_reference_data.py 下载。"
-        )
+    path = ensure_constraint_file(path)
 
     raw = path.read_bytes()
     with gzip.GzipFile(fileobj=io.BytesIO(raw)) as fh:
