@@ -8,10 +8,7 @@
 >
 > 每条结论都可回溯至原始数据源。全部数据公开，不需要伦理审批。
 
-<!-- 首屏截图放这里：把工作台的截图存为 docs/assets/figures/workbench.png，
-     然后把下面这行换成 ![](docs/assets/figures/workbench.png) -->
-
-![七维证据矩阵](docs/assets/figures/evidence-matrix.png)
+![靶点尽调工作台](docs/assets/figures/workbench.png)
 
 ## 三个入口
 
