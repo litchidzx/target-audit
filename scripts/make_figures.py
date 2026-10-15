@@ -382,7 +382,7 @@ def figure_architecture(out: Path) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="生成图表")
-    parser.add_argument("--out", default="docs/assets/figures")
+    parser.add_argument("--out", default="assets/figures")
     parser.add_argument("--mock", action="store_true")
     args = parser.parse_args(argv)
 

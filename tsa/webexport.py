@@ -130,21 +130,26 @@ def build_dataset(cards: list[AuditCard]) -> dict[str, Any]:
 
 
 def write_site(cards: Iterable[AuditCard], out_dir) -> list[str]:
-    """把审计结果写成可离线打开的工作台，返回生成的文件列表。"""
+    """把审计结果写成可离线打开的工作台，返回生成的文件列表。
+
+    刻意输出**扁平结构**（所有文件在同一层），而不是 index.html + assets/。
+    原因是托管平台的目录处理规则不一致：GitHub Pages 保留层级，但魔搭创空间的
+    网页上传会把拖进去的文件夹拍平。扁平结构两边都能直接用，省掉一类难查的故障。
+    """
     out = Path(out_dir)
-    (out / "assets").mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
 
     dataset = build_dataset(list(cards))
 
-    (out / "assets" / "style.css").write_text(
+    (out / "style.css").write_text(
         (ASSETS / "style.css").read_text(encoding="utf-8"), encoding="utf-8"
     )
-    (out / "assets" / "app.js").write_text(
+    (out / "app.js").write_text(
         (ASSETS / "app.js").read_text(encoding="utf-8"), encoding="utf-8"
     )
     # 数据以 JS 变量内嵌，而不是 fetch 一个 json —— 这样用 file:// 直接打开也能用，
     # 不需要起本地服务器。这是"下载后双击就能用"的前提。
-    (out / "assets" / "data.js").write_text(
+    (out / "data.js").write_text(
         "window.AUDIT_DATA = " + json.dumps(to_plain(dataset), ensure_ascii=False) + ";\n",
         encoding="utf-8",
     )
@@ -152,4 +157,4 @@ def write_site(cards: Iterable[AuditCard], out_dir) -> list[str]:
         (ASSETS / "index.html").read_text(encoding="utf-8"), encoding="utf-8"
     )
 
-    return ["assets/style.css", "assets/app.js", "assets/data.js", "index.html"]
+    return ["style.css", "app.js", "data.js", "index.html"]

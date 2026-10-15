@@ -8,7 +8,7 @@
 >
 > 每条结论都可回溯至原始数据源。全部数据公开，不需要伦理审批。
 
-![靶点尽调工作台](docs/assets/figures/workbench.png)
+![靶点尽调工作台](assets/figures/workbench.png)
 
 ## 三个入口
 
@@ -125,7 +125,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 九个真实靶点上七条规则的命中情况（格内为严重度）：
 
-![冲突规则命中](docs/assets/figures/rule-hits.png)
+![冲突规则命中](assets/figures/rule-hits.png)
 
 ## 五、真实数据运行结果
 
@@ -149,7 +149,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 系统同时支持跨癌种横向比较。同一个基因在不同癌种里的改变频率与机制构成可以差很多：
 
-![跨癌种比较](docs/assets/figures/cross-cancer.png)
+![跨癌种比较](assets/figures/cross-cancer.png)
 
 ### 运行中发现并修正的问题
 
@@ -159,7 +159,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
    点突变频率为 16.2%，而点突变 ∪ 纯合缺失 ∪ 扩增后为 40.0%。
    只看突变频率会得出"CDKN2A 在胰腺癌中不重要"这个完全错误的结论。
 
-   ![改变频率的统计口径](docs/assets/figures/alteration-method.png)
+   ![改变频率的统计口径](assets/figures/alteration-method.png)
 
 2. **ChEMBL 靶点匹配不能只靠名称。** `q=EGFR` 返回的前几条是蛋白互作靶点和
    小鼠 EGFR，真正的人源单蛋白条目根本不在前面，导致有奥希替尼等上市药的 EGFR
@@ -173,7 +173,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 六层：输入 → 采集 → 标准化 → 冲突检测 → 解释 → 汇总
 
-![系统架构](docs/assets/figures/architecture.png)
+![系统架构](assets/figures/architecture.png)
 
 三条贯穿始终的设计约束：
 

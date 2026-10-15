@@ -39,12 +39,12 @@ const fail = [];
 const check = (condition, message) => { if (!condition) fail.push(message); };
 
 // 先加载数据，再加载界面逻辑（顺序与 index.html 一致）
-new Function(readFileSync(join(root, "docs/assets/data.js"), "utf8")).call(globalThis);
+new Function(readFileSync(join(root, "docs/data.js"), "utf8")).call(globalThis);
 check(!!globalThis.window.AUDIT_DATA, "data.js 未定义 window.AUDIT_DATA");
 
 if (globalThis.window.AUDIT_DATA) {
   try {
-    new Function(readFileSync(join(root, "docs/assets/app.js"), "utf8"))();
+    new Function(readFileSync(join(root, "docs/app.js"), "utf8"))();
   } catch (err) {
     fail.push("app.js 执行抛错：" + err.message);
   }
