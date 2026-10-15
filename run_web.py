@@ -196,18 +196,41 @@ def main(argv: list[str] | None = None) -> int:
             f"  端口可能已被占用（例如先前启动的实例还没退出）。\n"
             f"  换一个端口：python run_web.py --port {args.port + 1}",
             file=sys.stderr,
+            flush=True,
         )
         return 1
     url = f"http://{args.host}:{args.port}/"
-    print(f"靶点尽调 · 实时审计已启动：{url}")
+
+    # 启动信息必须立刻可见：
+    #   * flush=True —— 不加的话输出会被缓冲，双击运行时窗口长时间一片空白，
+    #     使用者会以为程序没启动。这个坑真实发生过。
+    #   * 单独成框 —— 万一浏览器没自动弹出，这几行是唯一的线索。
+    print()
+    print("  " + "─" * 54)
+    print("   靶点尽调 · 实时审计")
+    print("  " + "─" * 54)
+    print(f"   请在浏览器中打开：  {url}")
+    print()
     if args.mock:
-        print("  当前为离线模式（--mock），结果来自内置假数据")
+        print("   当前为离线模式，结果来自内置假数据")
     else:
-        print("  首次查询一个基因约 20-30 秒，之后走缓存")
-    print("  按 Ctrl+C 停止")
+        print("   首次查询一个基因约 20-30 秒，之后走缓存")
+    print("   关闭这个窗口即停止程序")
+    print("  " + "─" * 54)
+    print()
+    sys.stdout.flush()
 
     if args.open:
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+        def _open_browser() -> None:
+            try:
+                if not webbrowser.open(url):
+                    print("（浏览器未能自动打开，请手动复制上面的地址）", flush=True)
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    f"（浏览器未能自动打开：{exc}，请手动复制上面的地址）", flush=True
+                )
+
+        threading.Timer(0.8, _open_browser).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
