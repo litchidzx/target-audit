@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import re
+import subprocess
 import sys
 import threading
 import webbrowser
@@ -176,6 +178,96 @@ class _Server(ThreadingHTTPServer):
     allow_reuse_address = not sys.platform.startswith("win")
 
 
+def find_browser_exe() -> Path | None:
+    """找一个基于 Chromium 的浏览器，用于以「应用模式」打开界面。"""
+    if not sys.platform.startswith("win"):
+        return None
+    candidates = []
+    for env in ("ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"):
+        base = os.environ.get(env)
+        if not base:
+            continue
+        candidates += [
+            Path(base) / "Microsoft/Edge/Application/msedge.exe",
+            Path(base) / "Google/Chrome/Application/chrome.exe",
+        ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+def open_app_window(url: str) -> bool:
+    """以应用模式打开界面：没有地址栏、没有标签页，看起来就是独立程序。
+
+    这是 VS Code、Slack 这类软件的通用做法 —— 网页技术画界面，外面套一层窗口。
+    区别只是它们自带浏览器内核，我们借用系统已装的 Edge，因此不增加任何依赖。
+
+    为什么不用 pywebview 之类的专用壳：它需要额外安装依赖，而目标环境
+    （评委、同学的电脑）未必能联网装包。用系统自带的浏览器最稳妥。
+    """
+    exe = find_browser_exe()
+    if exe is None:
+        return False
+    try:
+        subprocess.Popen(
+            [str(exe), f"--app={url}", "--window-size=1280,900"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        print(f"已以应用窗口方式打开（{exe.name}）。", flush=True)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def open_browser(url: str) -> bool:
+    """尽最大努力用系统默认浏览器打开地址，并如实报告结果。
+
+    单一方式不够可靠：打包后 webbrowser 有时找不到可用浏览器而静默返回 False，
+    使用者看到的就是"双击了没反应"。所以这里依次尝试几种方法，
+    任何一种成功就返回；全部失败则明确提示手动打开。
+    """
+    # 首选应用模式：用户体验上就是一个独立程序窗口，而不是浏览器标签页
+    if open_app_window(url):
+        return True
+
+    attempts: list[tuple[str, object]] = []
+    if sys.platform.startswith("win"):
+        # Windows 上最直接的方式：交给系统外壳处理默认浏览器
+        attempts.append(("os.startfile", lambda: os.startfile(url)))  # type: ignore[attr-defined]
+    attempts.append(("webbrowser", lambda: webbrowser.open(url)))
+    if sys.platform.startswith("win"):
+        attempts.append(
+            (
+                "cmd start",
+                lambda: subprocess.Popen(
+                    ["cmd", "/c", "start", "", url],
+                    shell=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ),
+            )
+        )
+
+    for name, action in attempts:
+        try:
+            result = action()  # type: ignore[operator]
+            if result is False:  # webbrowser 用 False 表示没找到浏览器
+                continue
+            print(f"已用 {name} 打开浏览器。", flush=True)
+            return True
+        except Exception:  # noqa: BLE001 - 换下一种方式
+            continue
+
+    print()
+    print("  浏览器未能自动打开。请手动复制下面这行到浏览器地址栏：")
+    print(f"      {url}")
+    print()
+    sys.stdout.flush()
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="靶点尽调本地网页界面")
     parser.add_argument("--host", default="127.0.0.1")
@@ -221,16 +313,7 @@ def main(argv: list[str] | None = None) -> int:
     sys.stdout.flush()
 
     if args.open:
-        def _open_browser() -> None:
-            try:
-                if not webbrowser.open(url):
-                    print("（浏览器未能自动打开，请手动复制上面的地址）", flush=True)
-            except Exception as exc:  # noqa: BLE001
-                print(
-                    f"（浏览器未能自动打开：{exc}，请手动复制上面的地址）", flush=True
-                )
-
-        threading.Timer(0.8, _open_browser).start()
+        threading.Timer(0.8, lambda: open_browser(url)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

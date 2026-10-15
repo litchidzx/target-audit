@@ -101,6 +101,19 @@ def main(argv: list[str] | None = None) -> int:
         print("构建结束但没找到产物。", file=sys.stderr)
         return 1
 
+    # 附一个启动脚本。可执行文件自身会尝试打开浏览器，但打包环境下
+    # webbrowser 有可能找不到可用浏览器。这个脚本用 cmd 的 start 打开地址，
+    # 是 Windows 上最可靠的方式，作为兜底路径。
+    if sys.platform.startswith("win"):
+        (bundle / "启动.cmd").write_text(
+            "@echo off\r\n"
+            "cd /d \"%~dp0\"\r\n"
+            "start \"\" \"target-audit.exe\"\r\n"
+            "timeout /t 3 /nobreak >nul\r\n"
+            "start \"\" \"http://127.0.0.1:8000\"\r\n",
+            encoding="utf-8",
+        )
+
     out_dir = Path(opts.out).resolve() if opts.out else ROOT.parent
     out_dir.mkdir(parents=True, exist_ok=True)
     archive = Path(
