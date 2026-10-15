@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from tsa.connectors.base import ConnectorError  # noqa: E402
 from tsa.engine import AuditRequest, run_audit  # noqa: E402
-from tsa.liveui import PAGE_CSS, render_error, render_form, render_result  # noqa: E402
+from tsa.liveui import full_css, render_error, render_form, render_result  # noqa: E402
 from tsa.webexport import CANCER_ZH  # noqa: E402
 
 GENE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9\-]{0,14}$")
@@ -93,7 +93,7 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
             params = parse_qs(parsed.query)
 
             if parsed.path == "/style.css":
-                self._send(PAGE_CSS, ctype="text/css; charset=utf-8")
+                self._send(full_css(), ctype="text/css; charset=utf-8")
                 return
             if parsed.path == "/health":
                 self._send("ok", ctype="text/plain; charset=utf-8")

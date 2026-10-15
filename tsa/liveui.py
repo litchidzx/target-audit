@@ -13,8 +13,12 @@ from __future__ import annotations
 
 from html import escape as esc
 
+from pathlib import Path
+
 from .dimensions import DIMENSION_META, label
 from .schema import CAUSE_LABEL_ZH, AuditCard, EvidenceRecord, Group, Polarity
+
+ASSETS = Path(__file__).resolve().parent / "webassets"
 
 GROUP_TITLE = {
     Group.TUMOR: "肿瘤侧 · 有多重要、有多独特",
@@ -37,36 +41,63 @@ POL_TEXT = {
 }
 
 PAGE_CSS = """
+/* 只放表单页与结果页特有的部分；基础样式来自 webassets/style.css */
 .bar{background:#fff;border-bottom:1px solid var(--line);padding:13px 22px;display:flex;
-     align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.bar .brand{font-weight:700;font-size:16px}
-.bar .brand small{display:block;font-weight:400;color:var(--muted);font-size:11px;letter-spacing:.08em}
-.shell{max-width:920px;margin:0 auto;padding:26px 22px 60px}
-.query{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:0 0 22px}
-.query h1{font-size:21px;margin:0 0 6px}
-.query p.hint{margin:0 0 16px;color:var(--muted);font-size:13.5px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
-.field{display:flex;flex-direction:column;gap:5px}
-.field label{font-size:12.5px;color:var(--muted)}
+     align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+     position:sticky;top:0;z-index:20}
+.bar .brand{font-weight:700;font-size:16px;letter-spacing:-.01em}
+.bar .brand small{display:block;font-weight:400;color:var(--muted);font-size:11px;letter-spacing:.1em}
+.bar a{font-size:13.5px;font-weight:500}
+.shell{max-width:940px;margin:0 auto;padding:30px 22px 72px}
+.query{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px 28px;
+       margin:0 0 24px;box-shadow:var(--shadow)}
+.query h1{font-size:24px;margin:0 0 8px;letter-spacing:-.02em}
+.query p.hint{margin:0 0 20px;color:var(--muted);font-size:14px;max-width:640px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12.5px;color:var(--muted);font-weight:600}
 .field input,.field select{
-  padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;
-  font-family:inherit;background:var(--bg);min-width:180px;
+  padding:11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14.5px;
+  font-family:inherit;background:var(--bg);min-width:190px;color:var(--ink);
+  transition:border-color .15s, box-shadow .15s, background .15s;
 }
-.field input:focus,.field select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);background:#fff}
-.go{padding:9px 20px;border:0;border-radius:9px;background:var(--accent);color:#fff;
-    font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
+.field input:focus,.field select:focus{
+  outline:0;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft);
+}
+.go{padding:11px 24px;border:0;border-radius:10px;background:var(--accent);color:#fff;
+    font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;
+    transition:filter .15s, transform .1s;box-shadow:0 2px 6px rgba(31,79,209,.24)}
 .go:hover{filter:brightness(1.08)}
-.samples{margin:14px 0 0;font-size:13px;color:var(--muted)}
-.samples a{margin-right:10px;white-space:nowrap}
-.notice{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);
-        border-radius:var(--radius);padding:14px 18px;margin:0 0 18px;font-size:13.5px;color:#2c3440}
-.notice.warn{border-left-color:var(--unfav);background:var(--unfav-bg)}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);
-      border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+.go:active{transform:translateY(1px)}
+.go:disabled{opacity:.65;cursor:default;filter:none;transform:none}
+.samples{margin:18px 0 0;font-size:13.5px;color:var(--muted);
+         border-top:1px solid var(--line);padding-top:14px}
+.samples a{margin-right:14px;white-space:nowrap;font-weight:500}
+.notice{background:var(--accent-soft);border-radius:12px;padding:14px 18px;margin:0 0 20px;
+        font-size:13.5px;color:#26344d;white-space:pre-line}
+.notice.warn{background:var(--unfav-bg);color:#6b241b}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(31,79,209,.25);
+      border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
-.busy{display:none;align-items:center;gap:10px;color:var(--muted);font-size:13.5px;margin-top:14px}
+.busy{display:none;align-items:center;gap:10px;color:var(--muted);font-size:13.5px;margin-top:16px}
 .busy.on{display:flex}
+@media (max-width:640px){
+  .shell{padding:20px 16px 48px}
+  .query{padding:20px}
+  .field input,.field select{min-width:100%}
+  .row{flex-direction:column;align-items:stretch}
+}
 """
+
+
+def full_css() -> str:
+    """基础样式表 + 页面特有样式。
+
+    必须合并。早先只返回了 PAGE_CSS，结果结果页的类名（.ev、.conflict、
+    .verdict-panel 等）全都没有定义，页面以裸 HTML 呈现。
+    """
+    base = (ASSETS / "style.css").read_text(encoding="utf-8")
+    return base + "\n" + PAGE_CSS
 
 
 def _shell(title: str, body: str) -> str:
