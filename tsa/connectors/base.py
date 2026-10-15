@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -21,6 +22,20 @@ from ..schema import Dimension, EvidenceRecord
 
 DEFAULT_CACHE = Path(__file__).resolve().parents[2] / "data" / "cache"
 USER_AGENT = "target-selectivity-audit/0.1 (research prototype)"
+
+# 设为 1 时只读缓存、完全不发网络请求。
+# 用途有二：一是无网环境下重放已有结果，二是让构建结果可复现
+# （避免同一次构建里混进不同时间抓到的数据）。
+OFFLINE_ENV = "TSA_OFFLINE"
+
+# 连续多少次连接失败就判定为整体不可达。
+# 断网时每个连接器都重试三次纯属空转：一轮 35 个靶点 × 6 个连接器
+# 会产生上千次注定失败的请求，把构建拖到几十分钟。
+CONNECTION_FAILURE_LIMIT = 3
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 class ConnectorError(RuntimeError):
@@ -57,10 +72,20 @@ class HttpClient:
     对外部 API 做开发时缓存是必需的：既避免反复打对方接口，也让离线调试成为可能。
     """
 
-    def __init__(self, cache_dir: Path | None = None, ttl_seconds: int = 7 * 24 * 3600):
+    # 进程级状态：连续失败计数与熔断开关，所有实例共享。
+    _consecutive_failures = 0
+    _circuit_open = False
+
+    def __init__(
+        self,
+        cache_dir: Path | None = None,
+        ttl_seconds: int = 7 * 24 * 3600,
+        offline: bool | None = None,
+    ):
         self.cache_dir = Path(cache_dir or DEFAULT_CACHE)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.ttl_seconds = ttl_seconds
+        self.offline = _env_flag(OFFLINE_ENV) if offline is None else offline
 
     def _cache_path(self, url: str) -> Path:
         key = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
@@ -84,6 +109,14 @@ class HttpClient:
             if age < self.ttl_seconds:
                 return json.loads(path.read_text(encoding="utf-8"))
 
+        if self.offline:
+            raise ConnectorError(f"离线模式且缓存未命中：{url}")
+        if HttpClient._circuit_open:
+            raise ConnectorError(
+                "网络已判定为不可达，本次构建不再尝试请求。"
+                f"如需仅用缓存重放，设置 {OFFLINE_ENV}=1。"
+            )
+
         last_error: Exception | None = None
         for attempt in range(retries):
             try:
@@ -94,9 +127,19 @@ class HttpClient:
                     path.write_text(
                         json.dumps(payload, ensure_ascii=False), encoding="utf-8"
                     )
+                HttpClient._consecutive_failures = 0
                 return payload
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
                 last_error = exc
+                # 连接被拒说明目标整体不可达，不是偶发抖动，重试没有意义。
+                refused = isinstance(exc, urllib.error.URLError) and (
+                    "refused" in str(exc).lower() or "10061" in str(exc)
+                )
+                if refused:
+                    HttpClient._consecutive_failures += 1
+                    if HttpClient._consecutive_failures >= CONNECTION_FAILURE_LIMIT:
+                        HttpClient._circuit_open = True
+                    break
                 if attempt < retries - 1:
                     time.sleep(2 ** attempt)
         raise ConnectorError(f"请求失败 {url}: {last_error}")

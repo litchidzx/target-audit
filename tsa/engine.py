@@ -17,6 +17,11 @@ from .schema import AuditCard, Dimension, EvidenceRecord, Polarity
 
 log = logging.getLogger("tsa.engine")
 
+# 给出"值得推进"这类正面结论所需的最低维度覆盖数。
+# 七个维度里少于这个数就只报"证据不足" —— 数据缺失比结论保守得多，
+# 而且缺数据时给出正面判断，比缺数据本身更危险。
+MIN_COVERAGE_FOR_VERDICT = 5
+
 
 @dataclass
 class AuditRequest:
@@ -46,7 +51,14 @@ def _collect(
 
 
 def _missing_dimensions(records: list[EvidenceRecord]) -> list[Dimension]:
-    have = {r.dimension for r in records if r.is_actionable}
+    """哪些维度完全没有拿到证据。
+
+    判定标准是"极性为未知"，而不是"是否构成可用的信号"。
+    中性（数据拿到了、但落在中间区间）是有效结论，不能算缺失 ——
+    早先版本用 is_actionable 判定，把中性也计成缺失，导致 CDKN2A/PAAD
+    这种六个数据源全部正常的靶点被误报为"仅覆盖 3/7 个维度"。
+    """
+    have = {r.dimension for r in records if r.polarity is not Polarity.UNKNOWN}
     return [d for d in Dimension if d not in have]
 
 
@@ -92,7 +104,18 @@ def _verdict(card: AuditCard) -> tuple[str, str]:
     高风险"，结果是每个基因都是"高风险"，这个结论不携带任何信息。不同类型的
     冲突对应的是完全不同的问题，判断必须把这个区别保留下来。
     """
+    total_dims = len(list(Dimension))
+    covered = total_dims - len(card.missing_dimensions)
+
     if not card.conflicts:
+        # 没检出冲突有两种可能：真的没矛盾，或者证据根本不够。
+        # 必须把这两种情况区分开，否则数据缺失会被读者误读成"这个靶点没问题"。
+        if covered < MIN_COVERAGE_FOR_VERDICT:
+            return (
+                f"证据不足（仅覆盖 {covered}/{total_dims} 个维度）",
+                f"{card.gene} 未检出矛盾，但当前只取到 {covered} 个维度的证据，"
+                f"不足以支撑任何结论。可能是数据源暂时不可用，建议补齐后重跑。",
+            )
         return "值得推进", f"{card.gene} 各维度证据方向一致，未见明显矛盾。"
 
     verdict_by_type = {

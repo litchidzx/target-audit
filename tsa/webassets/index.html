@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>靶点尽调 · 证据冲突审计工作台</title>
+<meta name="description" content="面向肿瘤靶点决策的证据冲突审计：七维证据、七条冲突规则、跨癌种比较。可离线打开。">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">靶点尽调<small>TARGET SELECTIVITY AUDIT</small></div>
+  <div class="counts">
+    <span><b id="stat-targets">0</b>已审计靶点</span>
+    <span><b id="stat-cancers">0</b>覆盖癌种</span>
+    <span><b id="stat-rules">0</b>已触发冲突规则</span>
+  </div>
+</header>
+<div class="layout">
+  <aside>
+    <div class="filters">
+      <input id="q" type="search" placeholder="搜索基因、癌种或规则，例如 KRAS">
+      <div class="chips" id="cancers"></div>
+      <div style="height:8px"></div>
+      <div class="chips" id="rules"></div>
+      <p class="hint">当前匹配 <b id="shown">0</b> 个靶点</p>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+  <main id="detail"></main>
+</div>
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
