@@ -2,13 +2,70 @@
 
 **面向肿瘤靶点决策的证据冲突审计系统**
 
-在投入之前，先看清靶点的风险。
+> 抗肿瘤药物从临床前到获批的整体失败率长期超过 90%，相当一部分并非倒在化合物优化，
+> 而是倒在靶点选错。**靶点尽调对候选靶点做一次自动化尽调**：从七个公开数据源汇集证据，
+> 把互相矛盾的地方自动揪出来并解释成因，给出治疗窗判断。
+>
+> 每条结论都可回溯至原始数据源。全部数据公开，不需要伦理审批。
 
-抗肿瘤药物从临床前到获批的整体失败率长期超过 90%，相当一部分并非倒在化合物优化，
-而是倒在靶点选错。靶点尽调对候选靶点做一次自动化尽调：从七个公开数据源汇集证据，
-**把互相矛盾的地方自动揪出来并解释成因**，给出治疗窗判断。每条结论都可回溯至原始数据源。
+<!-- 首屏截图放这里：把工作台的截图存为 docs/assets/figures/workbench.png，
+     然后把下面这行换成 ![](docs/assets/figures/workbench.png) -->
 
 ![七维证据矩阵](docs/assets/figures/evidence-matrix.png)
+
+## 三个入口
+
+| 方式 | 命令 / 链接 | 需要什么 |
+|---|---|---|
+| **在线工作台** | <https://litchidzx.github.io/target-audit/> | 只要浏览器 |
+| **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
+| **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
+
+**只想看看它是什么**：直接打开在线工作台，左侧点任意靶点，右侧就是完整审计卡。
+不需要注册、不需要安装、不需要联网。
+
+---
+
+## 快速开始
+
+### 方式一：在线工作台（零安装）
+
+打开 <https://litchidzx.github.io/target-audit/>，左侧挑一个靶点，或直接搜 `KRAS`。
+用癌种和规则标签筛选，例如只看 `R1` 治疗窗狭窄命中的靶点。
+
+放在本地也能用：下载仓库后双击 `docs/index.html`。页面不依赖网络，
+所有结果在构建时已经算好并固化。
+
+### 方式二：本地审计任意靶点（约两分钟）
+
+工作台只能看已算好的结果。**要审计一个新靶点，需要在本地运行**：
+
+```bash
+git clone https://github.com/litchidzx/target-audit.git
+cd target-audit
+
+python run.py self-test                        # 先确认环境正常：37 项测试
+python run.py audit KRAS --cancer LUAD --mock  # 离线跑通整条链路，不需要联网
+python scripts/fetch_reference_data.py         # 下载 gnomAD 约束表（4.6MB）
+python run.py audit KRAS --cancer LUAD         # 接真实数据，首次约 20-30 秒
+```
+
+**只有一个外部依赖**：为了拿到肿瘤侧两个维度，需要单独下载 DepMap 的基因效应矩阵
+（约 400MB，放到 `data/depmap/`，见下文）。**没有它系统照样能跑**，
+只是会少两个维度并明确标注"证据不足"，不会报错退出。
+
+### 方式三：Docker
+
+```bash
+docker build -t target-audit .
+docker run --rm target-audit audit KRAS --cancer LUAD --mock
+```
+
+### 环境要求
+
+- Python 3.10 或更高（开发环境为 3.14）
+- **无第三方运行时依赖**：不需要 numpy、pandas、requests，只用标准库
+- 画图和生成站点需要 matplotlib（仅开发用，不是运行必需）
 
 ---
 
@@ -154,36 +211,32 @@ TSA_LLM_PROVIDER=ollama TSA_LLM_MODEL=qwen3:8b python run.py audit KRAS --cancer
 不过校验就重试一次，再不过就降级到规则层的候选原因。**任何情况下报告都是完整的，
 不会出现没有依据的结论。**
 
-## 七、快速开始
+## 七、DepMap 参考数据
 
-### 离线跑通（不需要任何凭据）
-
-```bash
-python run.py self-test                                  # 37 项单元测试
-python run.py demo --cancer LUAD                         # 跑通整条管线
-python run.py audit KRAS --cancer LUAD --mock --llm stub # 带解释层的完整审计
-python scripts/build_site.py --out docs --mock           # 生成静态站点
-```
-
-### 接真实数据
-
-```bash
-python scripts/fetch_reference_data.py   # 下载 gnomAD 约束表（4.6MB）
-python run.py audit KRAS --cancer LUAD   # 首次约 20-30 秒，之后走缓存
-python scripts/build_site.py --out docs  # 生成静态站点
-```
-
-DepMap 的基因效应矩阵需要单独下载（约 400MB），放到 `data/depmap/`：
+肿瘤侧两个维度（肿瘤依赖性、跨癌种选择性）依赖 DepMap 的基因效应矩阵。
+它不随仓库分发，需要单独下载约 400MB：
 <https://depmap.org/portal/data_page/?tab=allData>
 
-需要 `CRISPRGeneEffect.csv` 与 `Model.csv`。文件名不必严格一致，
-系统会按模式忽略大小写匹配。**缺少它时系统会降级为缺少两个维度，不会报错退出。**
+需要 `CRISPRGeneEffect.csv` 与 `Model.csv`，放到 `data/depmap/`。
+文件名不必严格一致，系统会按模式忽略大小写匹配。
 
-## 八、静态站点
+**缺少它时系统会降级为缺少这两个维度并明确标注，不会报错退出** ——
+这是刻意的设计：七个数据源里挂掉两三个是常态，不该让整个审计失败。
+
+## 八、工作台与静态站点
 
 `docs/` 是构建产物，纯静态，可直接托管在 GitHub Pages。
 审计结果在构建时算好并固化，**演示现场不依赖网络**，
 也不会因为某个外部接口抽风而演示失败。
+
+重新生成：
+
+```bash
+python scripts/build_site.py --out docs          # 接真实数据
+python scripts/build_site.py --out docs --mock   # 离线验证
+TSA_OFFLINE=1 python scripts/build_site.py --out docs   # 只读缓存重放
+node tests/web_smoke.mjs                         # 无浏览器环境下验证界面
+```
 
 ## 九、边界与局限
 
