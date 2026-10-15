@@ -15,7 +15,7 @@ from html import escape as esc
 
 from pathlib import Path
 
-from .dimensions import DIMENSION_META, label
+from .dimensions import DIMENSION_META, label, short_label
 from .schema import CAUSE_LABEL_ZH, AuditCard, EvidenceRecord, Group, Polarity
 
 ASSETS = Path(__file__).resolve().parent / "webassets"
@@ -200,6 +200,25 @@ def _evidence_html(record: EvidenceRecord) -> str:
 </div>"""
 
 
+def _dimension_strip(card: AuditCard) -> str:
+    """七维方向总览。一眼看到哪些维度支持、哪些反对、哪些没数据。"""
+    by_dim = card.by_dimension()
+    cells = []
+    for dim in DIMENSION_META:
+        records = by_dim[dim]
+        ranked = sorted(
+            records,
+            key=lambda r: (r.polarity is not Polarity.UNKNOWN, r.strength),
+            reverse=True,
+        )
+        polarity = ranked[0].polarity if ranked else Polarity.UNKNOWN
+        cells.append(
+            f'<span class="dim {esc(polarity.value)}" title="{esc(label(dim))}">'
+            f'<i></i>{esc(short_label(dim))}</span>'
+        )
+    return f'<div class="dimstrip">{"".join(cells)}</div>'
+
+
 def render_result(card: AuditCard) -> str:
     by_dim = card.by_dimension()
     groups = []
@@ -276,6 +295,7 @@ def render_result(card: AuditCard) -> str:
     <div><span>证据覆盖</span><b>{covered}/{total} 个维度</b></div>
     <div><span>检出冲突</span><b>{len(card.conflicts)} 条</b></div>
   </div>
+  {_dimension_strip(card)}
 </div>
 <div class="sec">冲突</div>
 {conflict_html}

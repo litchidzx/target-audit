@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-from .dimensions import DIMENSION_META, label
+from .dimensions import DIMENSION_META, label, short_label
 from .schema import CAUSE_LABEL_ZH, AuditCard, Dimension, EvidenceRecord, to_plain
 
 ASSETS = Path(__file__).resolve().parent / "webassets"
@@ -124,6 +124,17 @@ def build_dataset(cards: list[AuditCard]) -> dict[str, Any]:
         "cancers": cancers,
         "rules": [{"id": r, "label": RULE_DESC.get(r, r)} for r in rules],
         "rule_catalog": [{"id": k, "label": v} for k, v in RULE_DESC.items()],
+        # 维度目录：前端渲染总览条与分组时都靠它，避免在 JS 里硬编码中文
+        "dimensions": [
+            {
+                "value": d.value,
+                "label": label(d),
+                "short": short_label(d),
+                "group": DIMENSION_META[d].group.value,
+                "hint": DIMENSION_META[d].source_hint,
+            }
+            for d in Dimension
+        ],
         "groups": GROUP_TITLE,
         "targets": items,
     }

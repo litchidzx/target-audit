@@ -88,3 +88,20 @@ def group_of(dimension: Dimension) -> Group:
 
 def label(dimension: Dimension) -> str:
     return DIMENSION_META[dimension].label_zh
+
+
+# 紧凑视图用的简称。七个维度的全名在横向排布时太长，
+# 总览条、表格表头这类地方用简称。
+SHORT_LABEL: dict[Dimension, str] = {
+    Dimension.DEPENDENCY: "依赖",
+    Dimension.SELECTIVITY: "选择性",
+    Dimension.CLINICAL: "临床",
+    Dimension.NORMAL_EXPRESSION: "正常表达",
+    Dimension.GENETIC_CONSTRAINT: "遗传约束",
+    Dimension.ON_TARGET_TOXICITY: "在靶毒性",
+    Dimension.DRUGGABILITY: "成药性",
+}
+
+
+def short_label(dimension: Dimension) -> str:
+    return SHORT_LABEL[dimension]

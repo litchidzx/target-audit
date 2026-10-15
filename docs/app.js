@@ -133,6 +133,16 @@
       "</div></div>";
   }
 
+  function dimensionStrip(t) {
+    var cells = D.dimensions.map(function (d) {
+      var rs = t.evidence.filter(function (e) { return e.dimension === d.value; });
+      var pol = rs.length ? rs[0].polarity : "unknown";
+      return '<span class="dim ' + esc(pol) + '" title="' + esc(d.label) + '">' +
+        "<i></i>" + esc(d.short) + "</span>";
+    });
+    return '<div class="dimstrip">' + cells.join("") + "</div>";
+  }
+
   function renderDetail() {
     if (!state.selected) { $("detail").innerHTML = heroHTML(); return; }
     var parts = state.selected.split("|");
@@ -153,7 +163,8 @@
       "<div><span>癌种</span><b>" + esc(t.cancer_zh) + "（" + esc(t.cancer) + "）</b></div>" +
       "<div><span>治疗窗</span><b>" + esc(t.therapeutic_window) + "</b></div>" +
       "<div><span>证据覆盖</span><b>" + t.coverage.covered + "/" + t.coverage.total + " 个维度</b></div>" +
-      "<div><span>检出冲突</span><b>" + t.conflicts.length + " 条</b></div></div></div>" +
+      "<div><span>检出冲突</span><b>" + t.conflicts.length + " 条</b></div></div>" +
+      dimensionStrip(t) + "</div>" +
       '<div class="sec">冲突</div>' + conflicts +
       '<div class="sec">证据矩阵</div>' + evidenceHTML(t) + missing +
       '<footer class="btm">生成时间 ' + esc(t.generated_at) +

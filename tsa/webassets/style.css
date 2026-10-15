@@ -122,6 +122,24 @@ main{overflow-y:auto; min-height:0; padding:30px 34px 72px}
 .kv div span{display:block; color:var(--faint); font-size:11.5px; letter-spacing:.04em; margin-bottom:2px}
 .kv div b{font-size:15px; font-weight:700}
 
+.dimstrip{
+  display:flex; flex-wrap:wrap; gap:7px; margin-top:16px;
+  border-top:1px solid var(--line-soft); padding-top:16px;
+}
+.dimstrip .dim{
+  display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+  padding:4px 11px; border-radius:99px; border:1px solid var(--line);
+  background:#fff; color:var(--muted); cursor:default;
+}
+.dimstrip .dim i{width:7px; height:7px; border-radius:50%; display:block; flex:0 0 7px}
+.dimstrip .dim.favorable{border-color:var(--fav-line); color:var(--fav)}
+.dimstrip .dim.favorable i{background:var(--fav)}
+.dimstrip .dim.unfavorable{border-color:var(--unfav-line); color:var(--unfav)}
+.dimstrip .dim.unfavorable i{background:var(--unfav)}
+.dimstrip .dim.neutral i{background:var(--neutral)}
+.dimstrip .dim.unknown{border-style:dashed; color:var(--faint)}
+.dimstrip .dim.unknown i{background:var(--unknown)}
+
 .sec{font-size:11.5px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase;
      margin:34px 0 14px; font-weight:700}
 
