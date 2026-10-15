@@ -136,7 +136,14 @@
   function dimensionStrip(t) {
     var cells = D.dimensions.map(function (d) {
       var rs = t.evidence.filter(function (e) { return e.dimension === d.value; });
-      var pol = rs.length ? rs[0].polarity : "unknown";
+      // 同一维度可能有多条证据（例如临床维度既有改变频率也有改变方式）。
+      // 总览条要反映主导方向，所以取强度最大的一条，而不是碰巧排在前面的那条。
+      var ranked = rs.slice().sort(function (a, b) {
+        var au = a.polarity === "unknown" ? 0 : 1;
+        var bu = b.polarity === "unknown" ? 0 : 1;
+        return (bu - au) || (b.strength - a.strength);
+      });
+      var pol = ranked.length ? ranked[0].polarity : "unknown";
       return '<span class="dim ' + esc(pol) + '" title="' + esc(d.label) + '">' +
         "<i></i>" + esc(d.short) + "</span>";
     });
