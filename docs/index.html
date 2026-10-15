@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>靶点尽调 · 示例审计结果</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <div class="brand">靶点尽调<small>TARGET SELECTIVITY AUDIT</small></div>
+  <nav><a href="index.html">全部靶点</a></nav>
+</div></header>
+<main class="wrap">
+  <section class="hero">
+    <h1>在投入之前，先看清靶点的风险</h1>
+    <p class="lead">
+      抗肿瘤药物从临床前到获批的整体失败率长期超过 90%，相当一部分并非倒在化合物优化，
+      而是倒在靶点选错。靶点尽调对候选靶点做一次自动化尽调：从七个公开数据源汇集证据，
+      把互相矛盾的地方自动揪出来并解释成因，给出治疗窗判断。
+    </p>
+    <div class="stats">
+      <div class="stat"><b>9</b><span>已审计靶点</span></div>
+      <div class="stat"><b>3</b><span>覆盖癌种</span></div>
+      <div class="stat"><b>7</b><span>证据维度</span></div>
+      <div class="stat"><b>7/7</b><span>已触发的冲突规则</span></div>
+    </div>
+  </section>
+  <div class="section-title">审计结果</div>
+  <div class="filter"><input id="q" type="search" placeholder="按靶点、癌种或规则编号筛选，例如 KRAS、PAAD、R1"></div>
+  <div class="grid" id="grid"><a class="card" data-search="kras paad 治疗窗待确认（另有：安全边界待确认） r1 r5" href="kras-paad.html">
+  <h3>KRAS <span class="cancer">PAAD</span></h3>
+  <p class="verdict">治疗窗待确认（另有：安全边界待确认）</p>
+  <p class="headline">KRAS 治疗窗可能很窄。</p>
+  <div class="tags"><span class="tag win">R1</span><span class="tag win">R5</span></div>
+</a><a class="card" data-search="kras luad 安全边界待确认（另有：治疗窗待确认） r5 r1" href="kras-luad.html">
+  <h3>KRAS <span class="cancer">LUAD</span></h3>
+  <p class="verdict">安全边界待确认（另有：治疗窗待确认）</p>
+  <p class="headline">KRAS 做得出来，但安全边界可能很窄。</p>
+  <div class="tags"><span class="tag win">R5</span><span class="tag win">R1</span></div>
+</a><a class="card" data-search="kras coad 治疗窗待确认（另有：安全边界待确认） r1 r5" href="kras-coad.html">
+  <h3>KRAS <span class="cancer">COAD</span></h3>
+  <p class="verdict">治疗窗待确认（另有：安全边界待确认）</p>
+  <p class="headline">KRAS 治疗窗可能很窄。</p>
+  <div class="tags"><span class="tag win">R1</span><span class="tag win">R5</span></div>
+</a><a class="card" data-search="cdkn2a paad 模型体系存疑（另有：需要换策略、成药路径不明） r3 r7 r4" href="cdkn2a-paad.html">
+  <h3>CDKN2A <span class="cancer">PAAD</span></h3>
+  <p class="verdict">模型体系存疑（另有：需要换策略、成药路径不明）</p>
+  <p class="headline">CDKN2A 的前临床与临床证据存在系统性脱节，需先确认哪个模型体系可信。</p>
+  <div class="tags"><span class="tag win">R3</span><span class="tag win">R7</span><span class="tag win">R4</span></div>
+</a><a class="card" data-search="cdkn2a luad 模型体系存疑（另有：需要换策略、成药路径不明） r3 r7 r4" href="cdkn2a-luad.html">
+  <h3>CDKN2A <span class="cancer">LUAD</span></h3>
+  <p class="verdict">模型体系存疑（另有：需要换策略、成药路径不明）</p>
+  <p class="headline">CDKN2A 的前临床与临床证据存在系统性脱节，需先确认哪个模型体系可信。</p>
+  <div class="tags"><span class="tag win">R3</span><span class="tag win">R7</span><span class="tag win">R4</span></div>
+</a><a class="card" data-search="smad4 paad 模型体系存疑（另有：成药路径不明） r3 r4" href="smad4-paad.html">
+  <h3>SMAD4 <span class="cancer">PAAD</span></h3>
+  <p class="verdict">模型体系存疑（另有：成药路径不明）</p>
+  <p class="headline">SMAD4 的前临床与临床证据存在系统性脱节，需先确认哪个模型体系可信。</p>
+  <div class="tags"><span class="tag win">R3</span><span class="tag win">R4</span></div>
+</a><a class="card" data-search="tp53 paad 模型体系存疑（另有：抑制深度需严格控制） r3 r6" href="tp53-paad.html">
+  <h3>TP53 <span class="cancer">PAAD</span></h3>
+  <p class="verdict">模型体系存疑（另有：抑制深度需严格控制）</p>
+  <p class="headline">TP53 的前临床与临床证据存在系统性脱节，需先确认哪个模型体系可信。</p>
+  <div class="tags"><span class="tag win">R3</span><span class="tag win">R6</span></div>
+</a><a class="card" data-search="egfr luad 安全边界待确认（另有：抑制深度需严格控制） r5 r6" href="egfr-luad.html">
+  <h3>EGFR <span class="cancer">LUAD</span></h3>
+  <p class="verdict">安全边界待确认（另有：抑制深度需严格控制）</p>
+  <p class="headline">EGFR 做得出来，但安全边界可能很窄。</p>
+  <div class="tags"><span class="tag win">R5</span><span class="tag win">R6</span></div>
+</a><a class="card" data-search="brca2 paad 选择性不足 r2" href="brca2-paad.html">
+  <h3>BRCA2 <span class="cancer">PAAD</span></h3>
+  <p class="verdict">选择性不足</p>
+  <p class="headline">BRCA2 重要性充分，独特性不足。</p>
+  <div class="tags"><span class="tag win">R2</span></div>
+</a></div>
+  <p class="empty" id="none" style="display:none">没有匹配的靶点。</p>
+</main>
+<script>
+var input=document.getElementById("q"),cards=[].slice.call(document.querySelectorAll("#grid .card")),none=document.getElementById("none");
+input.addEventListener("input",function(){
+  var q=input.value.trim().toLowerCase(),shown=0;
+  cards.forEach(function(el){
+    var hit=!q||el.getAttribute("data-search").indexOf(q)>-1;
+    el.style.display=hit?"":"none";
+    if(hit)shown++;
+  });
+  none.style.display=shown?"none":"block";
+});
+</script>
+<footer class="site"><div class="wrap">
+  本系统为面向科研的靶点证据整理工具，不输出诊断、治疗或用药建议，不构成任何医疗决策依据。
+  所有结论均可通过页面上的来源链接回溯至原始数据源。
+</div> · 生成于 2026-10-15</footer>
+</body>
+</html>

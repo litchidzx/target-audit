@@ -1,0 +1,17 @@
+# Python 字节码
+__pycache__/
+*.pyc
+*.pyo
+
+# 本地参考数据：体积大，且可用 scripts/fetch_reference_data.py 重新获取
+data/
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.log
