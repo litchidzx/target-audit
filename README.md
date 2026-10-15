@@ -10,21 +10,30 @@
 
 ![靶点尽调工作台](assets/figures/workbench.png)
 
-## 三个入口
+### 想直接试试？
+
+> **不想装任何东西** → 打开[在线工作台](https://litchidzx.github.io/target-audit/)，
+> 左侧点任意靶点即可。
+>
+> **想要桌面版** → 从 [Releases](https://github.com/litchidzx/target-audit/releases/latest)
+> 下载 `target-audit-windows-x64.zip`，解压后双击 `target-audit.exe`，
+> 浏览器会自动打开。**不需要安装 Python。**
+>
+> **要审计自己的靶点** → 见下方快速开始的方式二或方式四。
+
+## 怎么用
 
 | 方式 | 命令 / 链接 | 需要什么 |
 |---|---|---|
 | **在线工作台** | <https://litchidzx.github.io/target-audit/> | 只要浏览器 |
 | **魔搭创空间** | <https://www.modelscope.cn/studios/litchidzx/target-audit> | 只要浏览器（国内访问更快） |
+| **桌面版（免安装）** | [从 Releases 下载](https://github.com/litchidzx/target-audit/releases/latest) | Windows，什么都不用装 |
 | **本地网页界面** | `python run_web.py` → <http://127.0.0.1:8000> | Python 3.10+，可审计任意基因 |
 | **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
 | **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
 
-**只想看看它是什么**：直接打开在线工作台，左侧点任意靶点，右侧就是完整审计卡。
-不需要注册、不需要安装、不需要联网。
-
-**两个站点内容完全相同**，是同一套静态文件分别部署在国内与国外两个平台。
-**但它们只能看已算好的靶点**。要审计一个新的基因，用本地网页界面或命令行。
+**几种方式的分工**：两个在线站点是同一套静态文件的双地部署，**只能看已算好的靶点**；
+桌面版、本地网页界面与命令行**能审计任意基因**。全都不需要注册。
 
 ---
 
@@ -86,8 +95,8 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 ### 方式四：下载可执行程序（Windows，不需要装 Python）
 
-从 [Releases](../../releases) 下载 `target-audit-windows-x64.zip`，解压后
-**双击 `target-audit.exe`**，浏览器会自动打开。
+从 [Releases](https://github.com/litchidzx/target-audit/releases/latest)
+下载 `target-audit-windows-x64.zip`，解压后**双击 `target-audit.exe`**，浏览器会自动打开。
 
 Python 是解释型语言，源码必须有解释器才能运行；打包版把解释器和依赖一起装了进去，
 所以使用者不需要任何环境准备——这也是普通软件能双击运行的原因。
