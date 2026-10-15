@@ -16,6 +16,7 @@
 |---|---|---|
 | **在线工作台** | <https://litchidzx.github.io/target-audit/> | 只要浏览器 |
 | **魔搭创空间** | <https://www.modelscope.cn/studios/litchidzx/target-audit> | 只要浏览器（国内访问更快） |
+| **本地网页界面** | `python run_web.py` → <http://127.0.0.1:8000> | Python 3.10+，可审计任意基因 |
 | **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
 | **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
 
@@ -23,6 +24,7 @@
 不需要注册、不需要安装、不需要联网。
 
 **两个站点内容完全相同**，是同一套静态文件分别部署在国内与国外两个平台。
+**但它们只能看已算好的靶点**。要审计一个新的基因，用本地网页界面或命令行。
 
 ---
 
@@ -43,21 +45,37 @@
 
 ### 方式二：本地审计任意靶点（约两分钟）
 
-工作台只能看已算好的结果。**要审计一个新靶点，需要在本地运行**：
+工作台只能看已算好的结果。**要审计一个新靶点，在本地运行**：
 
 ```bash
 git clone https://github.com/litchidzx/target-audit.git
 cd target-audit
 
-python run.py self-test                        # 先确认环境正常：37 项测试
-python run.py audit KRAS --cancer LUAD --mock  # 离线跑通整条链路，不需要联网
-python scripts/fetch_reference_data.py         # 下载 gnomAD 约束表（4.6MB）
-python run.py audit KRAS --cancer LUAD         # 接真实数据，首次约 20-30 秒
+python run.py doctor        # 先看看环境差什么，它会逐项说明
+python run.py self-test     # 37 项测试，不需要网络
+python run_web.py           # 起一个网页界面，浏览器打开 127.0.0.1:8000
 ```
 
-**只有一个外部依赖**：为了拿到肿瘤侧两个维度，需要单独下载 DepMap 的基因效应矩阵
-（约 400MB，放到 `data/depmap/`，见下文）。**没有它系统照样能跑**，
-只是会少两个维度并明确标注"证据不足"，不会报错退出。
+网页界面里输入基因符号与癌种，服务端实时跑审计。也可以走命令行：
+
+```bash
+python run.py audit KRAS --cancer LUAD     # 首次约 20-30 秒，之后走缓存
+```
+
+### 首次运行会遇到什么
+
+这套东西刻意做成**缺什么都能跑**，不会因为少一个数据源就崩：
+
+| 能力 | 依赖 | 开箱可用？ |
+|---|---|---|
+| 引擎、七条冲突规则、解释层兜底 | 无 | ✅ 不需要网络 |
+| gnomAD 人类遗传学耐受性 | 4.6MB 约束表 | ✅ 首次使用时自动下载 |
+| 临床相关性、正常组织暴露、成药性、在靶毒性 | 四个公开接口 | ✅ 需要联网 |
+| 肿瘤依赖性、跨癌种选择性 | DepMap 约 400MB | ⚠️ 需手动下载，见下文 |
+
+**缺任何一项都只会让对应维度标记为"证据不足"，其余维度照常工作。**
+覆盖不足 5/7 个维度时，系统会明确说明"证据不足，不足以支撑任何结论"，
+而不是给一个没有依据的正面判断。
 
 ### 方式三：Docker
 
