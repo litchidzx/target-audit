@@ -171,6 +171,58 @@ def cmd_mappings(args):
     return 0
 
 
+def cmd_neighbors(args):
+    """查一个基因的依赖共变伙伴：谁和它同起同落，谁与它此消彼长。
+
+    这一步是用数据回答"这个靶点可不可能被替代"：互补伙伴是最需要
+    在实验里排除的旁路或平行同源补偿。
+    """
+
+    import json
+
+    from tsa.codependency import resolve_path, summarize
+
+    brief = summarize(args.gene, top=args.top)
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "gene": brief.gene,
+                    "available": brief.available,
+                    "is_flat": brief.is_flat,
+                    "dynamic_range": brief.dynamic_range,
+                    "note": brief.note,
+                    "positive": [{"gene": g, "r": v} for g, v in brief.positive],
+                    "negative": [{"gene": g, "r": v} for g, v in brief.negative],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if not brief.available:
+        print(f"{brief.gene}：{brief.note}")
+        print(f"共变表位置：{resolve_path()}")
+        return 1
+    if brief.is_flat:
+        print(f"{brief.gene}：{brief.note}")
+        return 0
+
+    print(f"{brief.gene} 的依赖共变伙伴（动态范围 {brief.dynamic_range:.2f}）")
+    print()
+    print("同向伙伴（同起同落，可能处在同一复合物或通路）：")
+    for g, v in brief.positive:
+        print(f"  {g:10} r={v:+.3f}")
+    print()
+    print("互补伙伴（此消彼长，可能是旁路或平行同源替补）：")
+    for g, v in brief.negative:
+        print(f"  {g:10} r={v:+.3f}")
+    print()
+    print(brief.note)
+    return 0
+
+
 def cmd_doctor(args):
     """检查运行环境：哪些能力现在可用，缺什么、怎么补。
 
@@ -310,6 +362,12 @@ def main(argv=None):
         help="导出一份可修改的覆盖模板，改完另存为 user.json 即生效",
     )
     p_map.set_defaults(func=cmd_mappings)
+
+    p_nb = sub.add_parser("neighbors", help="查一个基因的依赖共变伙伴")
+    p_nb.add_argument("gene")
+    p_nb.add_argument("--top", type=int, default=15, help="各列出多少个伙伴，默认 15")
+    p_nb.add_argument("--json", action="store_true", help="以 JSON 输出")
+    p_nb.set_defaults(func=cmd_neighbors)
 
     p_doc = sub.add_parser("doctor", help="检查运行环境")
     p_doc.set_defaults(func=cmd_doctor)

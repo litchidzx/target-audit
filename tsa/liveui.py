@@ -85,6 +85,10 @@ PAGE_CSS = """
 .mtitle{margin:14px 0 6px;font-size:12.5px;letter-spacing:.06em;color:var(--faint)}
 .mlist{margin:0;padding-left:20px;font-size:13.5px;line-height:1.7}
 .mlist .src{display:block;font-size:11.5px;color:var(--faint)}
+.chips{margin:0 0 4px;display:flex;flex-wrap:wrap;gap:6px}
+.chips .chip{display:inline-flex;align-items:baseline;gap:5px;padding:3px 9px;
+  border:1px solid var(--line);border-radius:999px;font-size:12.5px}
+.chips .chip i{font-style:normal;font-size:11px;color:var(--faint)}
 .vtable{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0 6px}
 .vtable th{text-align:left;font-weight:600;color:var(--faint);font-size:12px;
            border-bottom:1px solid var(--line);padding:6px 10px 6px 0}
@@ -341,6 +345,37 @@ def _mapping_html(card: AuditCard) -> str:
     )
 
 
+def _codependency_html(card: AuditCard) -> str:
+    """依赖共变区块。回答"这个靶点可能被什么绕过或替代"。"""
+
+    brief = getattr(card, "codependency", None)
+    if brief is None or not getattr(brief, "available", False):
+        return ""
+    if brief.is_flat:
+        return (
+            '<div class="sec">依赖共变</div>'
+            f'<div class="mapping"><p class="mmod">{esc(brief.note)}</p></div>'
+        )
+
+    def chips(items: list[tuple[str, float]]) -> str:
+        return "".join(
+            f'<span class="chip">{esc(g)}<i>{v:+.2f}</i></span>' for g, v in items
+        )
+
+    parts = [
+        '<p class="mtitle">同向伙伴（依赖曲线同起同落，可能处在同一复合物或通路）</p>',
+        f'<p class="chips">{chips(brief.positive)}</p>',
+        '<p class="mtitle">互补伙伴（此消彼长，可能是旁路或平行同源替补）</p>',
+        f'<p class="chips">{chips(brief.negative)}</p>',
+    ]
+    if brief.note:
+        parts.append(f'<p class="hint">{esc(brief.note)}</p>')
+    return (
+        '<div class="sec">依赖共变</div>'
+        f'<div class="mapping">{"".join(parts)}</div>'
+    )
+
+
 def _variant_html(card: AuditCard) -> str:
     """亚型分析区块。没有数据时返回空串，不占位置。"""
     analysis = getattr(card, "variant_analysis", None)
@@ -473,6 +508,7 @@ def render_result(card: AuditCard) -> str:
 <div class="sec">冲突</div>
 {conflict_html}
 {_variant_html(card)}
+{_codependency_html(card)}
 <div class="sec">证据矩阵</div>
 {"".join(groups)}
 {missing}

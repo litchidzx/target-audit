@@ -239,6 +239,15 @@ def run_audit(
         therapeutic_window=_therapeutic_window(records),
     )
 
+    # 依赖共变：纯本地查表，不依赖网络，也不影响其他维度。
+    # 它回答的是"这个靶点可能被什么绕过或替代"，正是 R2 缺乏独特性所关心的问题。
+    try:
+        from .codependency import summarize as summarize_codependency
+
+        card.codependency = summarize_codependency(req.gene)
+    except Exception:  # noqa: BLE001 - 可选能力，失败不影响审计
+        log.exception("依赖共变概览失败")
+
     if include_variants:
         # 亚型分析失败不影响基因级审计，所以这里吞掉异常只记日志。
         try:

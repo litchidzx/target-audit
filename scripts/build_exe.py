@@ -88,6 +88,10 @@ def main(argv: list[str] | None = None) -> int:
         # 打包版要能直接 `target-audit.exe mappings --modality protac` 查看。
         "--add-data",
         f"{ROOT / 'data' / 'mappings'}{SEP}data/mappings",
+        # 依赖共变表 1.2MB。放进包里，打包版不下载任何东西就能用
+        # `target-audit.exe neighbors KRAS`，审计报告里也会带上这一节。
+        "--add-data",
+        f"{ROOT / 'data' / 'depmap' / 'codependency.bin.lzma'}{SEP}data/depmap",
         # 这几个模块只有开发脚本用得到，排除后体积明显下降
         "--exclude-module",
         "matplotlib",

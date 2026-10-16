@@ -34,6 +34,7 @@
 | **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
 | **只审计一个亚型** | `python run.py audit KRAS --cancer PAAD --variant G12D` | Python 3.10+ |
 | **查评价标准** | `python run.py mappings --modality protac` | Python 3.10+ |
+| **查依赖共变伙伴** | `python run.py neighbors KRAS` | 什么都不用装 |
 | **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
 
 **几种方式的分工**：两个在线站点是同一套静态文件的双地部署，**只能看已算好的靶点**；
@@ -75,7 +76,7 @@ git clone https://github.com/litchidzx/target-audit.git
 cd target-audit
 
 python run.py doctor        # 先看看环境差什么，它会逐项说明
-python run.py self-test     # 66 项测试，不需要网络
+python run.py self-test     # 74 项测试，不需要网络
 python run_web.py           # 起一个网页界面，浏览器打开 127.0.0.1:8000
 ```
 
@@ -153,7 +154,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 ```bash
 target-audit.exe audit KRAS --cancer PAAD --variant G12D --out report.md
-target-audit.exe self-test          # 66 项单元测试，不需要网络
+target-audit.exe self-test          # 74 项单元测试，不需要网络
 target-audit.exe doctor             # 逐项检查环境，告诉你缺什么、怎么补
 ```
 
@@ -378,6 +379,30 @@ TSA_LLM_PROVIDER=ollama TSA_LLM_MODEL=qwen3:8b python run.py audit KRAS --cancer
 **缺少它时系统会降级为缺少这两个维度并明确标注，不会报错退出** ——
 这是刻意的设计：七个数据源里挂掉两三个是常态，不该让整个审计失败。
 
+### 依赖共变表
+
+同一份矩阵还用来回答一个它本身回答不了的问题：**这个靶点可能被什么绕过或替代。**
+做法是对每个基因算它的依赖性曲线与其他所有基因的皮尔逊相关系数，
+取最强的一部分正相关与负相关伙伴 —— 正相关提示同处一个复合物或通路，
+负相关提示此消彼长，也就是旁路或平行同源补偿，这正是抑制剂失效的常见原因。
+
+这张表（11166 个基因 × 各 25 个伙伴，1.2MB）随仓库分发，用 `python run.py neighbors KRAS` 直接查，
+审计报告与界面里也会带一节。重训：
+
+```bash
+python scripts/train_codependency.py --validate   # 约 20 秒，需要 numpy
+```
+
+**关于方法本身，有两点如实说明。** 一是最初用的是"z-score 后截断 SVD，再取向量余弦近邻"，
+验证没通过：KRAS 的近邻是随谱系成分走的基因，CDKN2A 的近邻全是噪声，所以我们把它换成了直接算相关系数
+—— 降维会把 0.2 到 0.4 量级的真实相关冲淡。二是相关系数只表示同起同落，
+不代表通路归属或因果。作为校准参照：随机基因对的相关中位数是 −0.007、90 分位 0.063，
+而检验过的几组已知关系分别落在 SMARCA4/SMARCA2 互补 −0.19、CDK4/CCND1 同向 +0.42、
+KRAS/RAF1 同向 +0.34。所以 r 低于约 0.2 的条目多半反映谱系成分，值得细看的是强度较高且方向一致的那几个。
+
+曲线过于平坦的基因（在各细胞系间表现雷同）会被排除，报告里会直接说明
+"该基因在 DepMap 里，但没有依赖结构"，而不是给出一串看起来很像、其实由噪声主导的伙伴。
+
 ## 九、工作台与静态站点
 
 `docs/` 是构建产物，纯静态，可直接托管在 GitHub Pages。
@@ -422,6 +447,7 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── explain.py            解释层：提示词、校验、重试、降级
 │   ├── variants.py           亚型分析：变异谱、覆盖缺口、可亚型化边界
 │   ├── mapping.py            治疗模态映射：哪种药该看哪些证据，以及每条判断的来源
+│   ├── codependency.py       依赖共变表：谁与查询基因同起同落、谁与它此消彼长
 │   ├── report.py             Markdown 报告
 │   ├── webexport.py          静态站点导出
 │   ├── liveui.py             实时界面服务端渲染
@@ -443,12 +469,14 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── build_site.py         生成静态站点
 │   ├── build_exe.py          打包可执行程序
 │   ├── pack_depmap.py        DepMap CSV -> 紧凑二进制
+│   ├── train_codependency.py 训练依赖共变表（开发端，需要 numpy）
 │   ├── cross_cancer.py       跨癌种横向比较
 │   ├── fetch_reference_data.py  参考数据下载
 │   ├── make_figures.py / make_icon.py / make_bp_doc.py   图表、图标与文档
 │   └── ...
-├── tests/                    66 项单元测试
+├── tests/                    74 项单元测试
 ├── data/mappings/            评价标准表（default.json 内置，user.json 由使用者覆盖）
+├── data/depmap/              依赖共变表（codependency.bin.lzma，1.2MB，随仓库分发）
 ├── docs/                     GitHub Pages 站点（构建产物）
 ├── paper/                    项目书与商业计划书
 └── examples/                 Markdown 示例报告

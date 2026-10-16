@@ -155,6 +155,8 @@ class AuditCard:
     # 按模态设定不参与判断的维度。覆盖率的分母要据此收窄，
     # 否则对 CAR-T 这类靶点，"没有小分子成药性"会被误算成证据缺口。
     not_applicable_dimensions: list[Dimension] = field(default_factory=list)
+    # 依赖共变概览（tsa.codependency.CoDependencyBrief）。同样用 Any 保持本层零依赖。
+    codependency: Any = None
     generated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
     )

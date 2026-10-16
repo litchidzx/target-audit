@@ -114,6 +114,37 @@ def _mapping_section(card: AuditCard) -> list[str]:
     return out
 
 
+def _codependency_section(card: AuditCard) -> list[str]:
+    """依赖共变一节：这个靶点可能和谁同起同落、可能被谁替补。"""
+
+    brief = getattr(card, "codependency", None)
+    if brief is None or not getattr(brief, "available", False):
+        return []
+    out = ["## 依赖共变", ""]
+    if brief.is_flat:
+        out.append(brief.note)
+        out.append("")
+        return out
+    if brief.positive:
+        out.append("**同向伙伴**（依赖曲线同起同落，可能处在同一复合物或通路）：")
+        out.append("")
+        out.append(
+            "、".join(f"{g}（r={v:+.2f}）" for g, v in brief.positive)
+        )
+        out.append("")
+    if brief.negative:
+        out.append("**互补伙伴**（此消彼长，可能是旁路或平行同源替补）：")
+        out.append("")
+        out.append(
+            "、".join(f"{g}（r={v:+.2f}）" for g, v in brief.negative)
+        )
+        out.append("")
+    if brief.note:
+        out.append(f"*{brief.note}*")
+        out.append("")
+    return out
+
+
 def render_markdown(card: AuditCard) -> str:
     out: list[str] = []
     out.append(f"# 靶点审计 · {card.gene} / {card.cancer}")
@@ -166,6 +197,7 @@ def render_markdown(card: AuditCard) -> str:
                 out.append("")
 
     out.extend(_variant_section(card))
+    out.extend(_codependency_section(card))
 
     out.append("## 证据矩阵")
     out.append("")
