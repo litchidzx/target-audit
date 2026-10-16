@@ -33,6 +33,7 @@
 | **本地网页界面** | `python run_web.py` → <http://127.0.0.1:8000> | Python 3.10+，可审计任意基因 |
 | **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
 | **只审计一个亚型** | `python run.py audit KRAS --cancer PAAD --variant G12D` | Python 3.10+ |
+| **查评价标准** | `python run.py mappings --modality protac` | Python 3.10+ |
 | **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
 
 **几种方式的分工**：两个在线站点是同一套静态文件的双地部署，**只能看已算好的靶点**；
@@ -74,7 +75,7 @@ git clone https://github.com/litchidzx/target-audit.git
 cd target-audit
 
 python run.py doctor        # 先看看环境差什么，它会逐项说明
-python run.py self-test     # 37 项测试，不需要网络
+python run.py self-test     # 57 项测试，不需要网络
 python run_web.py           # 起一个网页界面，浏览器打开 127.0.0.1:8000
 ```
 
@@ -152,7 +153,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 ```bash
 target-audit.exe audit KRAS --cancer PAAD --variant G12D --out report.md
-target-audit.exe self-test          # 37 项单元测试，不需要网络
+target-audit.exe self-test          # 57 项单元测试，不需要网络
 target-audit.exe doctor             # 逐项检查环境，告诉你缺什么、怎么补
 ```
 
@@ -420,6 +421,7 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── engine.py             编排与判断
 │   ├── explain.py            解释层：提示词、校验、重试、降级
 │   ├── variants.py           亚型分析：变异谱、覆盖缺口、可亚型化边界
+│   ├── mapping.py            治疗模态映射：哪种药该看哪些证据，以及每条判断的来源
 │   ├── report.py             Markdown 报告
 │   ├── webexport.py          静态站点导出
 │   ├── liveui.py             实时界面服务端渲染
@@ -445,7 +447,8 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── fetch_reference_data.py  参考数据下载
 │   ├── make_figures.py / make_icon.py / make_bp_doc.py   图表、图标与文档
 │   └── ...
-├── tests/                    37 项单元测试
+├── tests/                    57 项单元测试
+├── data/mappings/            评价标准表（default.json 内置，user.json 由使用者覆盖）
 ├── docs/                     GitHub Pages 站点（构建产物）
 ├── paper/                    项目书与商业计划书
 └── examples/                 Markdown 示例报告

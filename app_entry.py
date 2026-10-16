@@ -32,8 +32,16 @@ from run_web import main  # noqa: E402
 
 LOG_NAME = "target-audit.log"
 
-# 认得出的子命令就转交命令行入口，其余参数（包括无参数）走图形界面。
-CLI_COMMANDS = ("audit", "self-test", "doctor", "demo")
+
+def should_use_cli(argv: list[str]) -> bool:
+    """带子命令走命令行，双击（无参数）走图形界面。
+
+    判断依据刻意不看具体命令名：早先按白名单匹配，结果新增一个子命令
+    忘了登记，打包出去的程序会静默去开图形界面（实测踩过一次）。
+    规则改成"第一个参数不是选项开关，就当子命令"，不再有需要同步维护的清单。
+    """
+
+    return bool(argv) and not argv[0].startswith("-")
 
 
 def app_dir() -> Path:
@@ -97,7 +105,7 @@ def show_error_box(title: str, message: str) -> None:
 
 def run() -> int:
     argv = sys.argv[1:]
-    if argv and argv[0] in CLI_COMMANDS:
+    if should_use_cli(argv):
         attach_parent_console()
         log = redirect_output_to_log()
         if sys.stdout is None and log is not None:

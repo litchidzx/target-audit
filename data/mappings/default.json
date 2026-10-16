@@ -1,0 +1,117 @@
+{
+  "_说明": [
+    "治疗模态映射的默认表：哪种治疗方式，该看哪些证据。",
+    "每条判断都带 basis（依据）与 basis_status（依据状态）。标了「待补出处」的条目",
+    "目前只有推理依据、没有可引用的文献或指南，需要领域专家核对后再升级为「专家确认」。",
+    "使用者可以另存一份 user.json 覆盖或补充任意条目，无需改动本文件。"
+  ],
+  "rules": [
+    {
+      "scope": "global",
+      "key": "*",
+      "source": "builtin",
+      "basis_status": "工程设定",
+      "basis": "阈值、方向与分级属于工程设定，不由医学文献决定",
+      "note": "本工具的阈值与分级是工程设定，可被更具体的条目覆盖；报告中每条判断都会标明来源",
+      "thresholds": {}
+    },
+    {
+      "scope": "modality",
+      "key": "general",
+      "source": "builtin",
+      "basis_status": "工程设定",
+      "basis": "未指定模态时的兜底：不预设任何维度不适用",
+      "note": "未指定治疗模态时，按七个维度的通用标准评估，不对任何维度做适用性调整"
+    },
+    {
+      "scope": "modality",
+      "key": "small_molecule",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "小分子需要靶点上有可结合的位点，因此结构与成药性属于必需证据",
+      "note": "小分子路径下，结构与成药性是必需证据，缺失时不应给出正面结论",
+      "required": ["dependency", "druggability"],
+      "extra_queries": ["该癌种主要变异的药物覆盖情况（亚型特异性）"]
+    },
+    {
+      "scope": "modality",
+      "key": "antibody",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "抗体分子量约 150 kDa，无法穿过细胞膜，必须作用于细胞表面或胞外靶点",
+      "note": "抗体路径下，靶点是否位于细胞表面、正常组织的抗原共表达，比小分子层面的成药性更重要",
+      "required": ["normal_expression"],
+      "not_applicable": ["druggability"],
+      "extra_queries": ["靶点是否为细胞表面或胞外蛋白", "正常组织抗原共表达与可及性"]
+    },
+    {
+      "scope": "modality",
+      "key": "adc",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "ADC 需要经内吞进入细胞后释放载荷，因此内吞效率与正常组织抗原共表达是关键约束",
+      "note": "ADC 路径下，除了抗原选择，还要看内吞效率与载荷在正常组织的暴露",
+      "required": ["normal_expression"],
+      "not_applicable": ["druggability"],
+      "extra_queries": ["内吞效率", "正常组织抗原共表达"]
+    },
+    {
+      "scope": "modality",
+      "key": "protac",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "降解剂为事件驱动机制，依靠三元复合物诱导降解，不要求占据深口袋，但需要有可结合的配体",
+      "note": "降解剂路径下，不应把「结构缺乏深口袋」当作硬伤；关注点转为是否已有可结合配体与 E3 连接酶的可及性",
+      "required": ["dependency"],
+      "downweight": ["druggability"],
+      "extra_queries": ["是否已有已知配体（不要求深口袋）", "目标组织中的 E3 连接酶表达"]
+    },
+    {
+      "scope": "modality",
+      "key": "cell_therapy",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "细胞治疗的安全性核心是正常组织共表达与可溶性抗原导致的脱靶，与分子层面的成药性无关",
+      "note": "细胞治疗路径下，重点是抗原选择的安全性，小分子成药性与在靶毒性两个维度不适用",
+      "required": ["normal_expression"],
+      "not_applicable": ["druggability", "on_target_toxicity"],
+      "extra_queries": [
+        "靶点是否为细胞表面抗原",
+        "是否存在可溶性抗原（可导致脱靶与 T 细胞耗竭）",
+        "正常组织共表达谱"
+      ]
+    },
+    {
+      "scope": "modality",
+      "key": "oligo",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "核酸药物不需要结合位点，瓶颈在递送与靶组织可达性",
+      "note": "核酸药物路径下，成药性维度不适用，递送方案是决定性的约束",
+      "required": ["dependency", "genetic_constraint"],
+      "not_applicable": ["druggability"],
+      "extra_queries": ["递送方式与靶组织可达性", "是否有肝外递送方案"]
+    },
+    {
+      "scope": "cancer",
+      "key": "PAAD",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "胰腺癌致密基质与低血管化对药物递送的限制、以及人源模型体系的可得性，是该瘤种评估中应当单独考虑的因素",
+      "note": "胰腺癌评估中额外关注递送与模型体系",
+      "extra_queries": [
+        "致密基质与低血管化对药物递送的限制",
+        "可用于验证的人源模型（类器官 / PDX）可得性"
+      ]
+    },
+    {
+      "scope": "gene",
+      "key": "KRAS",
+      "source": "builtin",
+      "basis_status": "待补出处",
+      "basis": "KRAS 各主要变异（G12C / G12D / G12V / G12R）的成药进展差异极大，基因级结论必须落到变异层面",
+      "note": "KRAS 的结论必须落到具体变异，基因级判断不足以支撑决策",
+      "extra_queries": ["该癌种中 KRAS 的变异构成，以及各变异对应的获批药物"]
+    }
+  ]
+}

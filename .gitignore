@@ -3,8 +3,13 @@ __pycache__/
 *.pyc
 *.pyo
 
-# 本地参考数据：体积大，且可用 scripts/fetch_reference_data.py 重新获取
-data/
+# 本地参考数据：体积大，且可用 scripts/fetch_reference_data.py 重新获取。
+# 例外是 data/mappings/ —— 那是治疗模态映射表，属于源码的一部分，必须入库。
+data/*
+!data/mappings/
+# 使用者的自定义覆盖属于本机数据，不该跟着仓库走
+data/mappings/user.json
+data/mappings/user.local.json
 
 # 编辑器与系统文件
 .vscode/
@@ -15,6 +20,7 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.log
+tests/.tmp/
 
 # PyInstaller 构建产物
 build/

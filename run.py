@@ -108,6 +108,64 @@ def cmd_self_test(args):
     return 0 if result.wasSuccessful() else 1
 
 
+def cmd_mappings(args):
+    """查看某个治疗模态的评价标准，以及每条标准是谁定的。
+
+    存在的理由：评价标准本身必须能被检查。使用者可以在数据目录放一份
+    user.json 覆盖内置条目，这个命令用来看覆盖有没有生效、最后生效的是哪一条。
+    """
+
+    import json
+
+    from tsa.mapping import (
+        describe,
+        load_rules,
+        modality_label,
+        resolve,
+        template_payload,
+        user_path,
+        MODALITY_META,
+    )
+
+    if args.write_template:
+        from pathlib import Path
+
+        target = Path(args.write_template)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(template_payload(args.modality or "general"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"已写出模板：{target}")
+        print("改完另存为 user.json，放到程序旁的 data/mappings/ 即生效。")
+        return 0
+
+    rules, problems = load_rules()
+    for problem in problems:
+        print(f"提示：{problem}")
+
+    if args.list:
+        print("可用治疗模态：")
+        for key, label_zh in MODALITY_META.items():
+            print(f"  {key:15} {label_zh}")
+        print()
+        print(f"内置规则 {sum(1 for r in rules if r.source == 'builtin')} 条，"
+              f"使用者自定义 {sum(1 for r in rules if r.source == 'user')} 条")
+        print(f"使用者覆盖文件：{user_path()}（不存在表示尚未自定义）")
+        return 0
+
+    effective = resolve(args.modality, args.cancer, args.gene, rules=rules)
+    if args.json:
+        print(json.dumps(effective.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"靶点尽调 · 评价标准（{modality_label(effective.modality or 'general')}）")
+    print()
+    for line in describe(effective):
+        print(line)
+    return 0
+
+
 def cmd_doctor(args):
     """检查运行环境：哪些能力现在可用，缺什么、怎么补。
 
@@ -229,6 +287,19 @@ def main(argv=None):
 
     p_test = sub.add_parser("self-test", help="跑单元测试")
     p_test.set_defaults(func=cmd_self_test)
+
+    p_map = sub.add_parser("mappings", help="查看某个治疗模态的评价标准及其来源")
+    p_map.add_argument("--modality", help="治疗模态，如 small_molecule、antibody、cell_therapy")
+    p_map.add_argument("--cancer", help="癌种缩写，如 PAAD")
+    p_map.add_argument("--gene", help="基因符号，如 KRAS")
+    p_map.add_argument("--list", action="store_true", help="列出全部模态与规则条数")
+    p_map.add_argument("--json", action="store_true", help="以 JSON 输出")
+    p_map.add_argument(
+        "--write-template",
+        metavar="PATH",
+        help="导出一份可修改的覆盖模板，改完另存为 user.json 即生效",
+    )
+    p_map.set_defaults(func=cmd_mappings)
 
     p_doc = sub.add_parser("doctor", help="检查运行环境")
     p_doc.set_defaults(func=cmd_doctor)
