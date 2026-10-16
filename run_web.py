@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -93,6 +94,10 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
         def do_GET(self):
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
+            try:
+                self.server.last_request = time.time()
+            except Exception:  # noqa: BLE001
+                pass
 
             if parsed.path == "/style.css":
                 try:
@@ -107,6 +112,15 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
                 return
             if parsed.path == "/health":
                 self._send("ok", ctype="text/plain; charset=utf-8")
+                return
+            if parsed.path == "/shutdown":
+                self._send(
+                    "<!doctype html><meta charset='utf-8'>"
+                    "<body style='font-family:sans-serif;padding:48px;color:#111726'>"
+                    "<h2>已停止</h2><p>后台服务已经关闭，端口也已释放，"
+                    "现在可以安全地关闭这个页面。</p></body>"
+                )
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return
             if parsed.path == "/audit":
                 self._handle_audit(params)
@@ -176,6 +190,9 @@ class _Server(ThreadingHTTPServer):
     """
 
     allow_reuse_address = not sys.platform.startswith("win")
+
+    # 最近一次收到请求的时间。空闲看门狗据此判断是否该自动退出。
+    last_request: float = 0.0
 
 
 def find_browser_exe() -> Path | None:
@@ -268,12 +285,49 @@ def open_browser(url: str) -> bool:
     return False
 
 
+def is_our_instance(host: str, port: int, timeout: float = 2.0) -> bool:
+    """端口被占用时，判断占用者是不是本程序的另一个实例。
+
+    双击第二次是很常见的操作（用户忘了第一次还开着）。此时若直接报"端口被占用"
+    会让人困惑，正确做法是直接打开已经在运行的那个实例。
+    """
+    import urllib.request
+
+    try:
+        url = f"http://{host}:{port}/health"
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return response.status == 200 and response.read().decode().strip() == "ok"
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def watch_idle(server: "_Server", timeout_seconds: int) -> None:
+    """空闲太久就自动退出。
+
+    窗口模式没有控制台，用户关掉应用窗口后进程会留在后台占着端口。
+    看门狗保证它最终会自己消失，而不是变成僵尸进程。
+    """
+    while True:
+        time.sleep(30)
+        idle = time.time() - getattr(server, "last_request", 0.0)
+        if idle >= timeout_seconds:
+            print(f"已空闲 {idle / 60:.0f} 分钟，自动退出。", flush=True)
+            server.shutdown()
+            return
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="靶点尽调本地网页界面")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--mock", action="store_true", help="离线模式，用假数据")
     parser.add_argument("--open", action="store_true", help="启动后打开浏览器")
+    parser.add_argument(
+        "--idle-minutes",
+        type=int,
+        default=30,
+        help="空闲多少分钟后自动退出（0 表示不自动退出）",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
@@ -283,15 +337,25 @@ def main(argv: list[str] | None = None) -> int:
     try:
         server = _Server((args.host, args.port), handler)
     except OSError as exc:
+        # 端口被占用：如果占用者就是本程序，直接打开它，不要把用户挡在门外。
+        if is_our_instance(args.host, args.port):
+            print("检测到程序已经在运行，直接打开现有实例。", flush=True)
+            open_browser(f"http://{args.host}:{args.port}/")
+            return 0
         print(
             f"无法绑定 {args.host}:{args.port} —— {exc}\n"
-            f"  端口可能已被占用（例如先前启动的实例还没退出）。\n"
-            f"  换一个端口：python run_web.py --port {args.port + 1}",
+            f"  端口被其他程序占用了。换一个端口重试：\n"
+            f"     python run_web.py --port {args.port + 1}\n"
+            f"  可执行文件版请改启动脚本里的端口号。",
             file=sys.stderr,
             flush=True,
         )
         return 1
     url = f"http://{args.host}:{args.port}/"
+
+    # 有没有真正的控制台。窗口模式（--windowed 打包）下 stdout 被接到日志文件，
+    # 此时"关闭这个窗口即停止程序"这句话就不成立了，必须换成别的指引。
+    has_console = sys.stdout is not None and sys.stdout.isatty()
 
     # 启动信息必须立刻可见：
     #   * flush=True —— 不加的话输出会被缓冲，双击运行时窗口长时间一片空白，
@@ -307,10 +371,20 @@ def main(argv: list[str] | None = None) -> int:
         print("   当前为离线模式，结果来自内置假数据")
     else:
         print("   首次查询一个基因约 20-30 秒，之后走缓存")
-    print("   关闭这个窗口即停止程序")
+    if has_console:
+        print("   关闭这个窗口即停止程序")
+    else:
+        print("   使用完毕后，点界面右上角的「退出程序」即可关闭（也会空闲自动退出）")
     print("  " + "─" * 54)
     print()
     sys.stdout.flush()
+
+    if args.idle_minutes > 0:
+        threading.Thread(
+            target=watch_idle,
+            args=(server, args.idle_minutes * 60),
+            daemon=True,
+        ).start()
 
     if args.open:
         threading.Timer(0.8, lambda: open_browser(url)).start()

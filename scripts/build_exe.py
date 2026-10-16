@@ -65,6 +65,10 @@ def main(argv: list[str] | None = None) -> int:
         "--noconfirm",
         "--clean",
         "--onefile" if opts.onefile else "--onedir",
+        # 不留控制台窗口。双击后只出现应用窗口，观感与普通桌面软件一致。
+        # 代价是启动输出与报错不再可见，因此 app_entry 会把它们写进日志文件，
+        # 并在启动失败时弹出系统对话框。
+        "--windowed",
         "--name",
         "target-audit",
         # 界面资源必须打进去，否则打包后读不到 CSS 与 JS。

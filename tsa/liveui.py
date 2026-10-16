@@ -47,6 +47,9 @@ PAGE_CSS = """
 .bar .brand{font-weight:700;font-size:16px;letter-spacing:-.01em}
 .bar .brand small{display:block;font-weight:400;color:var(--muted);font-size:11px;letter-spacing:.1em}
 .bar a{font-size:13.5px;font-weight:500}
+.bar-actions{display:flex;gap:16px;align-items:center}
+.bar a.quit{color:var(--muted)}
+.bar a.quit:hover{color:var(--unfav)}
 .shell{max-width:940px;margin:0 auto;padding:30px 22px 72px}
 .query{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px 28px;
        margin:0 0 24px;box-shadow:var(--shadow)}
@@ -111,7 +114,10 @@ def _shell(title: str, body: str) -> str:
 <body>
 <div class="bar">
   <div class="brand">靶点尽调 · 实时审计<small>TARGET SELECTIVITY AUDIT</small></div>
-  <a href="/">换一个靶点</a>
+  <div class="bar-actions">
+    <a href="/">换一个靶点</a>
+    <a href="/shutdown" class="quit" title="停止后台服务并释放端口">退出程序</a>
+  </div>
 </div>
 <div class="shell">{body}</div>
 </body>
