@@ -168,5 +168,9 @@ def write_site(cards: Iterable[AuditCard], out_dir) -> list[str]:
     (out / "index.html").write_text(
         (ASSETS / "index.html").read_text(encoding="utf-8"), encoding="utf-8"
     )
+    # favicon 也要一起放到站点根目录，否则浏览器标签页没有图标
+    favicon = ASSETS / "favicon.png"
+    if favicon.exists():
+        (out / "favicon.png").write_bytes(favicon.read_bytes())
 
-    return ["style.css", "app.js", "data.js", "index.html"]
+    return ["style.css", "app.js", "data.js", "favicon.png", "index.html"]

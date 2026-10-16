@@ -71,6 +71,10 @@ def main(argv: list[str] | None = None) -> int:
         "--windowed",
         "--name",
         "target-audit",
+        # 应用图标。不指定的话 PyInstaller 会用自己的默认图标，
+        # 快捷方式和 exe 都会显示成那个东西。
+        "--icon",
+        str(ROOT / "assets" / "app.ico"),
         # 界面资源必须打进去，否则打包后读不到 CSS 与 JS。
         # 目标路径保持 tsa/webassets，与源码目录结构一致，
         # 这样 paths.asset_path("tsa", "webassets") 在两种运行方式下都成立。

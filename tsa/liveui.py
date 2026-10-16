@@ -109,6 +109,7 @@ def _shell(title: str, body: str) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title>
+<link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
