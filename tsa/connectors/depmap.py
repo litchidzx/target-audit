@@ -30,6 +30,16 @@ resolve_data_file() 会按模式忽略大小写地匹配。如果 DepMap 提供�
      正常侧只能用 HPA / gnomAD 这类代理信号。
   2. 二维细胞系的依赖图谱和类器官 / PDX 存在已知差异，本癌种尤其明显。
      这条差异本身会在跨癌种比较里制造假信号，是 R3 冲突的常见成因。
+
+数据来源有两种形态，引擎会自动选择：
+
+  1. **紧凑二进制** `gene_effect.bin.lzma`（约 14MB）—— 由
+     `scripts/pack_depmap.py` 从官方 CSV 转换而来。随程序分发用这个，
+     14MB 与 497MB 的分发难度完全不同。
+  2. **官方 CSV** `CRISPRGeneEffect.csv`（约 497MB）—— 本地开发时直接用它。
+
+两者算出的统计结论一致（量化精度 0.05，对中位数与分位没有影响），
+转换脚本会在生成后回读校验。
 """
 
 from __future__ import annotations
@@ -45,11 +55,13 @@ from typing import Any, Iterable, Sequence
 from ..normalize import make_record, percentile_rank
 from ..paths import data_root
 from ..schema import Dimension, EvidenceRecord
+from .. import depmapbin
 from .base import Connector, ConnectorNotConfigured
 
 DATA_DIR = data_root() / "depmap"
 GENE_EFFECT_FILE = DATA_DIR / "CRISPRGeneEffect.csv"
 MODEL_FILE = DATA_DIR / "Model.csv"
+PACKED_FILE = DATA_DIR / "gene_effect.bin.lzma"
 
 # 允许的文件名模式，按优先级排列。DepMap 的下载文件名会随版本变化，
 # 让使用者为了改名而卡住是不必要的摩擦。
@@ -231,6 +243,39 @@ def iter_gene_effect(
     return list(column_index.keys()), rows
 
 
+def iter_gene_effect_packed(
+    genes: Iterable[str], packed: Path = PACKED_FILE
+) -> tuple[list[str], list[tuple[str, dict[str, float]]]]:
+    """从紧凑二进制读出与 iter_gene_effect 相同结构的数据。
+
+    返回同样的 (基因列表, [(细胞系, {基因: 值})])，所以下游的 compute_stats
+    完全不需要改 —— 两种数据形态共用同一套统计逻辑，结论因此必然一致。
+    """
+    if not packed.exists():
+        raise ConnectorNotConfigured(
+            f"缺少 {packed}。运行 python scripts/pack_depmap.py 生成，"
+            f"或改用官方 CSV（见本模块说明）。"
+        )
+    matrix = depmapbin.load(packed)
+    index = {g: i for i, g in enumerate(matrix.genes)}
+    found = [g for g in (x.upper() for x in genes) if g in index]
+    if not found:
+        return [], []
+
+    cols = [(g, index[g]) for g in found]
+    n_cols = matrix.shape[1]
+    rows: list[tuple[str, dict[str, float]]] = []
+    for i, cell in enumerate(matrix.cell_lines):
+        base = i * n_cols
+        values: dict[str, float] = {}
+        for gene, col in cols:
+            raw = depmapbin.to_signed(matrix.rows[base + col])
+            if raw != depmapbin.MISSING:
+                values[gene] = raw * matrix.scale
+        rows.append((cell, values))
+    return found, rows
+
+
 def _medians(
     gene: str,
     lineage: str,
@@ -353,7 +398,11 @@ class DepMapConnector(Connector):
         lineage_map = load_lineage_map()
         # 必须连同参照面板一起加载，否则分位没有意义。见 REFERENCE_GENE_PANEL 的说明。
         panel = sorted({gene, *REFERENCE_GENE_PANEL})
-        all_genes, matrix = iter_gene_effect(genes=panel)
+        # 优先用随程序分发的紧凑二进制；本地有官方 CSV 时也可直接用它。
+        if PACKED_FILE.exists():
+            all_genes, matrix = iter_gene_effect_packed(panel)
+        else:
+            all_genes, matrix = iter_gene_effect(genes=panel)
         if gene not in all_genes:
             raise ConnectorNotConfigured(f"在 gene effect 矩阵里找不到 {gene}")
         try:

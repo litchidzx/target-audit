@@ -31,6 +31,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEP = ";" if sys.platform.startswith("win") else ":"
 
+# 需要引用 tsa 包来定位参考数据，因此把仓库根加入搜索路径
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="打包本地界面为可执行程序")
@@ -113,6 +117,35 @@ def main(argv: list[str] | None = None) -> int:
             "start \"\" \"http://127.0.0.1:8000\"\r\n",
             encoding="utf-8",
         )
+
+    # 把参考数据一并放进包里，让用户开箱就是七个维度。
+    # 紧凑矩阵 13.8MB 相对于 497MB 的官方 CSV 几乎不构成负担；
+    # gnomAD 那张表只有 4.6MB，放进去可以省掉一次首次下载。
+    from tsa.connectors.depmap import MODEL_PATTERNS, PACKED_FILE, resolve_data_file
+    from tsa.connectors.gnomad import CONSTRAINT_FILE
+
+    bundled: list[tuple[str, int]] = []
+    targets: list[tuple[Path, Path]] = []
+    if PACKED_FILE.exists():
+        targets.append((PACKED_FILE, bundle / "data" / "depmap" / PACKED_FILE.name))
+    model_file = resolve_data_file(MODEL_PATTERNS)
+    if model_file is not None:
+        targets.append((model_file, bundle / "data" / "depmap" / model_file.name))
+    if CONSTRAINT_FILE.exists():
+        targets.append((CONSTRAINT_FILE, bundle / "data" / "gnomad" / CONSTRAINT_FILE.name))
+
+    for src, dest in targets:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        bundled.append((str(dest.relative_to(bundle)), dest.stat().st_size))
+
+    if bundled:
+        print("\n已随包附带参考数据：")
+        for name, size in bundled:
+            print(f"  {name}  {size / 1e6:.1f} MB")
+    else:
+        print("\n注意：没有找到参考数据，包内不含 DepMap 矩阵，")
+        print("      用户将只能看到五个维度。先运行 python scripts/pack_depmap.py。")
 
     out_dir = Path(opts.out).resolve() if opts.out else ROOT.parent
     out_dir.mkdir(parents=True, exist_ok=True)
