@@ -143,6 +143,18 @@ class TestShippedTable(unittest.TestCase):
     def test_pathway_partners_survive(self):
         self.assert_in_top("KRAS", "RAF1", side="同向", within=10)
 
+    def test_swi_snf_subunits_find_each_other(self):
+        # SWI/SNF 的各个亚基应当互为同向伙伴，而 SMARCA2 是与 SMARCA4 互补的旁系同源。
+        for subunit in ("SMARCB1", "SMARCD1", "SMARCC1"):
+            with self.subTest(subunit=subunit):
+                self.assert_in_top("SMARCA4", subunit, side="同向", within=10)
+
+    def test_receptor_adaptors_find_each_other(self):
+        # EGFR 的经典下游接头蛋白
+        for adaptor in ("SHC1", "GRB2"):
+            with self.subTest(adaptor=adaptor):
+                self.assert_in_top("EGFR", adaptor, side="同向", within=10)
+
     def test_flat_genes_are_recorded_and_carry_no_partners(self):
         flat = self.table.meta.get("flat") or {}
         self.assertTrue(flat, "训练产物里应当保留被判为平坦的基因及其动态范围")

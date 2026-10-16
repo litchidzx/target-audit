@@ -76,7 +76,7 @@ git clone https://github.com/litchidzx/target-audit.git
 cd target-audit
 
 python run.py doctor        # 先看看环境差什么，它会逐项说明
-python run.py self-test     # 74 项测试，不需要网络
+python run.py self-test     # 76 项测试，不需要网络
 python run_web.py           # 起一个网页界面，浏览器打开 127.0.0.1:8000
 ```
 
@@ -154,7 +154,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 ```bash
 target-audit.exe audit KRAS --cancer PAAD --variant G12D --out report.md
-target-audit.exe self-test          # 74 项单元测试，不需要网络
+target-audit.exe self-test          # 76 项单元测试，不需要网络
 target-audit.exe doctor             # 逐项检查环境，告诉你缺什么、怎么补
 ```
 
@@ -396,9 +396,20 @@ python scripts/train_codependency.py --validate   # 约 20 秒，需要 numpy
 **关于方法本身，有两点如实说明。** 一是最初用的是"z-score 后截断 SVD，再取向量余弦近邻"，
 验证没通过：KRAS 的近邻是随谱系成分走的基因，CDKN2A 的近邻全是噪声，所以我们把它换成了直接算相关系数
 —— 降维会把 0.2 到 0.4 量级的真实相关冲淡。二是相关系数只表示同起同落，
-不代表通路归属或因果。作为校准参照：随机基因对的相关中位数是 −0.007、90 分位 0.063，
-而检验过的几组已知关系分别落在 SMARCA4/SMARCA2 互补 −0.19、CDK4/CCND1 同向 +0.42、
-KRAS/RAF1 同向 +0.34。所以 r 低于约 0.2 的条目多半反映谱系成分，值得细看的是强度较高且方向一致的那几个。
+不代表通路归属或因果。
+
+**校准参照。** 随机基因对的相关中位数是 −0.007、90 分位 0.063；而结果是站得住的：
+
+| 查询基因 | 同向伙伴（前几名） | 互补伙伴（前几名） |
+|---|---|---|
+| SMARCA4 | SMARCB1、SMARCD1、SMARCC1 —— SWI/SNF 复合体的其他亚基 | **SMARCA2**（已知的旁系同源互斥）、JUN |
+| EGFR | SHC1、GRB2、GAB1 —— 受体下游的经典接头蛋白 | CDS2、EEFSEC |
+| CDK4 | CCND1（同一复合物，r=+0.42） | RB1（上下游关系，r=−0.19） |
+| KRAS | RAF1（r=+0.34）、SHOC2（r=+0.23） | — |
+
+这几组关系在训练前就被登记为检验项，且不参与训练本身。
+它们的强度提示了怎么读这张表：r 低于约 0.2 的条目多半反映谱系成分，
+值得细看的是强度较高且方向一致的那几个。
 
 曲线过于平坦的基因（在各细胞系间表现雷同）会被排除，报告里会直接说明
 "该基因在 DepMap 里，但没有依赖结构"，而不是给出一串看起来很像、其实由噪声主导的伙伴。
@@ -474,7 +485,7 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── fetch_reference_data.py  参考数据下载
 │   ├── make_figures.py / make_icon.py / make_bp_doc.py   图表、图标与文档
 │   └── ...
-├── tests/                    74 项单元测试
+├── tests/                    76 项单元测试
 ├── data/mappings/            评价标准表（default.json 内置，user.json 由使用者覆盖）
 ├── data/depmap/              依赖共变表（codependency.bin.lzma，1.2MB，随仓库分发）
 ├── docs/                     GitHub Pages 站点（构建产物）
