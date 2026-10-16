@@ -127,7 +127,7 @@ def _shell(title: str, body: str) -> str:
 </head>
 <body>
 <div class="bar">
-  <div class="brand">靶点尽调 · 实时审计<small>TARGET SELECTIVITY AUDIT</small></div>
+  <div class="brand">靶点尽调 · 实时审计<small>TARGET DUE DILIGENCE</small></div>
   <div class="bar-actions">
     <a href="/">换一个靶点</a>
     <a href="/shutdown" class="quit" title="停止后台服务并释放端口">退出程序</a>
