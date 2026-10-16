@@ -42,7 +42,7 @@ class TestNormalize(unittest.TestCase):
 
 class TestConflictRules(unittest.TestCase):
     def test_kras_triggers_expected_conflicts(self):
-        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()])
+        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()], include_variants=False)
         types = {c.type for c in card.conflicts}
         self.assertIn(ConflictType.NARROW_THERAPEUTIC_WINDOW, types)
         self.assertIn(ConflictType.LACKS_UNIQUENESS, types)
@@ -50,13 +50,14 @@ class TestConflictRules(unittest.TestCase):
 
     def test_clean_target_has_no_conflicts(self):
         card = run_audit(
-            AuditRequest(gene="SELECTIVE_EXAMPLE", cancer="LUAD"), [mock_connector()]
+            AuditRequest(gene="SELECTIVE_EXAMPLE", cancer="LUAD"), [mock_connector()],
+            include_variants=False
         )
         self.assertEqual([c.type for c in card.conflicts], [])
         self.assertEqual(card.verdict, "值得推进")
 
     def test_conflicts_sorted_by_severity(self):
-        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()])
+        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()], include_variants=False)
         severities = [c.severity for c in card.conflicts]
         self.assertEqual(severities, sorted(severities, reverse=True))
 
@@ -83,7 +84,7 @@ class TestConflictRules(unittest.TestCase):
         self.assertEqual(detect_conflicts(records, gene="X"), [])
 
     def test_every_conflict_has_cause_candidates(self):
-        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()])
+        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()], include_variants=False)
         for conflict in card.conflicts:
             self.assertTrue(conflict.cause_candidates, "每个冲突都要给出候选原因")
             self.assertTrue(conflict.suggested_experiment, "每个冲突都要给出区分实验")
@@ -97,7 +98,7 @@ class TestEngine(unittest.TestCase):
             def fetch(self, req):
                 return []
 
-        card = run_audit(AuditRequest(gene="X", cancer="LUAD"), [EmptyConnector()])
+        card = run_audit(AuditRequest(gene="X", cancer="LUAD"), [EmptyConnector()], include_variants=False)
         self.assertEqual(len(card.missing_dimensions), len(list(Dimension)))
 
     def test_failing_connector_does_not_break_audit(self):
@@ -110,7 +111,9 @@ class TestEngine(unittest.TestCase):
                 raise ConnectorError("模拟数据源故障")
 
         card = run_audit(
-            AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector(), BrokenConnector()]
+            AuditRequest(gene="KRAS", cancer="LUAD"),
+            [mock_connector(), BrokenConnector()],
+            include_variants=False
         )
         self.assertTrue(card.records, "坏掉的数据源不应影响其他数据源的结果")
         self.assertIn("数据源未返回结果", card.headline)

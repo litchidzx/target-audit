@@ -30,6 +30,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).parent))
 
 from tsa.connectors.base import ConnectorError  # noqa: E402
+from tsa.connectors.cbioportal import CBioPortalConnector  # noqa: E402
 from tsa.engine import AuditRequest, run_audit  # noqa: E402
 from tsa.liveui import full_css, render_error, render_form, render_result  # noqa: E402
 from tsa.paths import asset_path  # noqa: E402
@@ -94,6 +95,15 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
             self.end_headers()
             self.wfile.write(payload)
 
+        def _send_json(self, obj, status: int = 200):
+            import json as _json
+
+            self._send_bytes(
+                _json.dumps(obj, ensure_ascii=False).encode("utf-8"),
+                "application/json; charset=utf-8",
+                status,
+            )
+
         def do_GET(self):
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
@@ -124,6 +134,28 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
             if parsed.path == "/health":
                 self._send("ok", ctype="text/plain; charset=utf-8")
                 return
+            if parsed.path == "/variants":
+                # 给界面上的亚型下拉框供数据。取不到就返回空列表而不报错 ——
+                # 用户仍然可以手输亚型，不该被这个接口卡住。
+                gene = (params.get("gene", [""])[0] or "").strip().upper()
+                cancer = (params.get("cancer", [""])[0] or "").strip().upper()
+                if not GENE_RE.match(gene) or cancer not in valid:
+                    self._send_json({"variants": []})
+                    return
+                try:
+                    profile = CBioPortalConnector().fetch_profile(gene, cancer)
+                    payload = {
+                        "gene": gene,
+                        "cancer": cancer,
+                        "variants": [
+                            {"name": name, "cases": cases}
+                            for name, cases in profile.variants
+                        ],
+                    }
+                except Exception:  # noqa: BLE001
+                    payload = {"variants": []}
+                self._send_json(payload)
+                return
             if parsed.path == "/shutdown":
                 self._send(
                     "<!doctype html><meta charset='utf-8'>"
@@ -142,6 +174,7 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
                         cancers,
                         gene=(params.get("gene", [""])[0] or "").upper(),
                         cancer=(params.get("cancer", [""])[0] or ""),
+                        variant=(params.get("variant", [""])[0] or "").upper(),
                         samples=SAMPLES if not mock else None,
                     )
                 )
@@ -151,6 +184,7 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
         def _handle_audit(self, params: dict[str, list[str]]):
             gene = (params.get("gene", [""])[0] or "").strip().upper()
             cancer = (params.get("cancer", [""])[0] or "").strip().upper()
+            variant = (params.get("variant", [""])[0] or "").strip().upper() or None
 
             if not GENE_RE.match(gene):
                 self._send(
@@ -172,7 +206,10 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
                 return
 
             try:
-                card = run_audit(AuditRequest(gene=gene, cancer=cancer), connectors)
+                card = run_audit(
+                    AuditRequest(gene=gene, cancer=cancer, variant=variant),
+                    connectors,
+                )
             except ConnectorError as exc:
                 self._send(
                     render_error(

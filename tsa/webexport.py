@@ -73,6 +73,32 @@ def _record_dict(record: EvidenceRecord) -> dict[str, Any]:
     }
 
 
+def _variant_dict(card: AuditCard) -> dict[str, Any] | None:
+    analysis = getattr(card, "variant_analysis", None)
+    if analysis is None or not analysis.briefs:
+        return None
+    return {
+        "study_id": analysis.study_id,
+        "altered_cases": analysis.altered_cases,
+        "determinate_cases": analysis.determinate_cases,
+        "covered_cases": analysis.covered_cases,
+        "coverage": round(analysis.coverage, 4),
+        "headline": analysis.headline,
+        "note": analysis.note,
+        "other_variant_count": analysis.other_variant_count,
+        "variants": [
+            {
+                "name": b.name,
+                "cases": b.cases,
+                "fraction": round(b.fraction, 4),
+                "drugs": b.drugs,
+                "kind": b.kind,
+            }
+            for b in analysis.briefs
+        ],
+    }
+
+
 def card_to_dict(card: AuditCard) -> dict[str, Any]:
     total_dims = len(list(Dimension))
     covered = total_dims - len(card.missing_dimensions)
@@ -102,6 +128,7 @@ def card_to_dict(card: AuditCard) -> dict[str, Any]:
             for c in card.conflicts
         ],
         "evidence": [_record_dict(r) for r in card.records],
+        "variant_analysis": _variant_dict(card),
         "missing": [
             {"dimension": d.value, "label": label(d), "hint": DIMENSION_META[d].source_hint}
             for d in card.missing_dimensions

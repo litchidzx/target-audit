@@ -75,6 +75,19 @@ PAGE_CSS = """
 .samples{margin:18px 0 0;font-size:13.5px;color:var(--muted);
          border-top:1px solid var(--line);padding-top:14px}
 .samples a{margin-right:14px;white-space:nowrap;font-weight:500}
+.vinfo{margin:10px 0 0;font-size:12.5px;color:var(--faint);min-height:1.2em}
+.vbox{background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+      padding:18px 22px;margin:0 0 8px;box-shadow:var(--shadow)}
+.vhead{margin:0 0 6px;font-size:15px;font-weight:600;color:#2b3444;line-height:1.6}
+.vsel{margin:0 0 10px;font-size:13.5px;color:var(--muted)}
+.vtable{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0 6px}
+.vtable th{text-align:left;font-weight:600;color:var(--faint);font-size:12px;
+           border-bottom:1px solid var(--line);padding:6px 10px 6px 0}
+.vtable td{border-bottom:1px solid var(--line-soft);padding:7px 10px 7px 0;
+           vertical-align:top}
+.vtable td.fav{color:var(--fav)}
+.vtable td.muted{color:var(--faint)}
+.vnote{margin:10px 0 0;font-size:12px;color:var(--faint);line-height:1.7}
 .notice{background:var(--accent-soft);border-radius:12px;padding:14px 18px;margin:0 0 20px;
         font-size:13.5px;color:#26344d;white-space:pre-line}
 .notice.warn{background:var(--unfav-bg);color:#6b241b}
@@ -131,6 +144,7 @@ def render_form(
     *,
     gene: str = "",
     cancer: str = "",
+    variant: str = "",
     notice: str = "",
     notice_kind: str = "",
     samples: list[tuple[str, str]] | None = None,
@@ -169,9 +183,16 @@ def render_form(
         <label for="cancer">目标癌种</label>
         <select id="cancer" name="cancer">{options}</select>
       </div>
+      <div class="field">
+        <label for="variant">亚型（可选）</label>
+        <input id="variant" name="variant" value="{esc(variant)}" list="variant-options"
+               placeholder="留空 = 基因级审计" autocomplete="off" spellcheck="false">
+        <datalist id="variant-options"></datalist>
+      </div>
       <button class="go" type="submit" id="submit">开始审计</button>
     </div>
     <div class="busy" id="busy"><span class="spin"></span>正在访问数据源，请稍候……</div>
+    <p class="vinfo" id="vinfo"></p>
   </form>
   {sample_html}
 </div>
@@ -182,6 +203,44 @@ document.getElementById("form").addEventListener("submit", function () {{
   b.disabled = true;
   b.textContent = "审计中…";
 }});
+
+// 基因与癌种确定之后，去后端取该基因在该癌种里的实际变异列表填进下拉框。
+// 用 datalist 而不是 select，是为了同时支持"从列表里挑"和"自己输入罕见位点"。
+var geneEl = document.getElementById("gene");
+var cancerEl = document.getElementById("cancer");
+var listEl = document.getElementById("variant-options");
+var infoEl = document.getElementById("vinfo");
+var timer = null;
+
+function loadVariants() {{
+  var gene = geneEl.value.trim().toUpperCase();
+  var cancer = cancerEl.value;
+  listEl.innerHTML = "";
+  infoEl.textContent = "";
+  if (!gene) return;
+  fetch("/variants?gene=" + encodeURIComponent(gene) + "&cancer=" + encodeURIComponent(cancer))
+    .then(function (r) {{ return r.ok ? r.json() : null; }})
+    .then(function (data) {{
+      if (!data || !data.variants || !data.variants.length) return;
+      data.variants.forEach(function (v) {{
+        var opt = document.createElement("option");
+        opt.value = v.name;
+        opt.label = v.cases + " 例";
+        listEl.appendChild(opt);
+      }});
+      infoEl.textContent = "该基因在本癌种中有 " + data.variants.length
+        + " 种变异，可在上面选择或自行输入。";
+    }})
+    .catch(function () {{}});
+}}
+
+function scheduleLoad() {{
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(loadVariants, 400);
+}}
+geneEl.addEventListener("input", scheduleLoad);
+cancerEl.addEventListener("change", scheduleLoad);
+if (geneEl.value) loadVariants();
 </script>
 """
     return _shell("靶点尽调 · 实时审计", body)
@@ -223,6 +282,56 @@ def _dimension_strip(card: AuditCard) -> str:
             f'<i></i>{esc(short_label(dim))}</span>'
         )
     return f'<div class="dimstrip">{"".join(cells)}</div>'
+
+
+def _variant_html(card: AuditCard) -> str:
+    """亚型分析区块。没有数据时返回空串，不占位置。"""
+    analysis = getattr(card, "variant_analysis", None)
+    if analysis is None or not analysis.briefs:
+        return ""
+
+    rows = []
+    for b in analysis.briefs:
+        if b.drugs:
+            drugs = "、".join(b.drugs[:3])
+            if len(b.drugs) > 3:
+                drugs += f" 等 {len(b.drugs)} 个"
+            cls = "fav"
+        elif not b.determinate:
+            drugs = "不适用（说明书按外显子描述）"
+            cls = "muted"
+        else:
+            drugs = "—"
+            cls = "muted"
+        rows.append(
+            f"<tr><td><b>{esc(b.name)}</b></td><td>{b.cases}</td>"
+            f'<td>{b.fraction:.0%}</td><td class="{cls}">{esc(drugs)}</td></tr>'
+        )
+    if analysis.other_variant_count:
+        rows.append(
+            f'<tr><td class="muted">其他 {analysis.other_variant_count} 种低频变异</td>'
+            f'<td class="muted">—</td><td class="muted">—</td>'
+            f'<td class="muted">未逐一查询</td></tr>'
+        )
+
+    selected = ""
+    if analysis.selected is not None:
+        sel = analysis.selected
+        selected = (
+            f'<p class="vsel">所选亚型 <b>{esc(sel.name)}</b>：'
+            f"占本队列改变的 {sel.fraction:.0%}（{sel.cases} 例）</p>"
+        )
+
+    return f"""<div class="sec">亚型分析</div>
+<div class="vbox">
+  <p class="vhead">{esc(analysis.headline)}</p>
+  {selected}
+  <table class="vtable">
+    <thead><tr><th>变异</th><th>病例</th><th>占改变</th><th>获批药物</th></tr></thead>
+    <tbody>{"".join(rows)}</tbody>
+  </table>
+  <p class="vnote">样本范围 {esc(analysis.study_id)}，共 {analysis.altered_cases} 例存在改变。{esc(analysis.note)}</p>
+</div>"""
 
 
 def render_result(card: AuditCard) -> str:
@@ -305,6 +414,7 @@ def render_result(card: AuditCard) -> str:
 </div>
 <div class="sec">冲突</div>
 {conflict_html}
+{_variant_html(card)}
 <div class="sec">证据矩阵</div>
 {"".join(groups)}
 {missing}

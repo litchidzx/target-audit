@@ -46,6 +46,50 @@ def _evidence_line(r: EvidenceRecord) -> str:
     )
 
 
+def _variant_section(card: AuditCard) -> list[str]:
+    """亚型分析。
+
+    这是"有没有药"这句话的适用边界 —— 同一个基因在不同癌种里答案可能差几十倍，
+    不拆开亚型就看不出这一点。
+    """
+    analysis = getattr(card, "variant_analysis", None)
+    if analysis is None or not analysis.briefs:
+        return []
+
+    out: list[str] = ["## 亚型分析", ""]
+    out.append(f"**{analysis.headline}**")
+    out.append("")
+    out.append(f"*样本范围：{analysis.study_id}，共 {analysis.altered_cases} 例存在改变*")
+    out.append("")
+    out.append("| 变异 | 病例 | 占改变 | 获批药物 |")
+    out.append("|---|---|---|---|")
+    for b in analysis.briefs:
+        if b.drugs:
+            drugs = "、".join(b.drugs[:3])
+            if len(b.drugs) > 3:
+                drugs += f" 等 {len(b.drugs)} 个"
+        elif not b.determinate:
+            drugs = "不适用（说明书按外显子描述）"
+        else:
+            drugs = "—"
+        out.append(f"| {b.name} | {b.cases} | {b.fraction:.0%} | {drugs} |")
+    if analysis.other_variant_count:
+        out.append(
+            f"| 其他 {analysis.other_variant_count} 种低频变异 | — | — | 未逐一查询 |"
+        )
+    out.append("")
+    if analysis.selected is not None:
+        sel = analysis.selected
+        out.append(
+            f"**所选亚型 {sel.name}**：占本队列改变的 {sel.fraction:.0%}"
+            f"（{sel.cases} 例）。"
+        )
+        out.append("")
+    out.append(f"*{analysis.note}*")
+    out.append("")
+    return out
+
+
 def render_markdown(card: AuditCard) -> str:
     out: list[str] = []
     out.append(f"# 靶点审计 · {card.gene} / {card.cancer}")
@@ -92,6 +136,8 @@ def render_markdown(card: AuditCard) -> str:
                     origin = f"模型 {meta.get('model') or provider or '未知'}"
                 out.append(f"  *解释来源：{origin}；提示词指纹 {meta.get('prompt_hash', '—')}*")
                 out.append("")
+
+    out.extend(_variant_section(card))
 
     out.append("## 证据矩阵")
     out.append("")

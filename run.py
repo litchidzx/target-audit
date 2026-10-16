@@ -69,9 +69,10 @@ def cmd_audit(args):
         print(f"解释层未启用：{exc}")
         llm = None
     card = run_audit(
-        AuditRequest(gene=args.gene, cancer=args.cancer),
+        AuditRequest(gene=args.gene, cancer=args.cancer, variant=args.variant),
         connectors=build_connectors(args),
         llm=llm,
+        include_variants=not args.no_variants,
     )
     text = render_markdown(card)
     if args.out:
@@ -211,6 +212,8 @@ def main(argv=None):
         help=f"启用解释层并指定 provider：stub, openai_compat, {', '.join(sorted(PROVIDER_PRESETS))}",
     )
     p_audit.add_argument("--model", help="模型名称，覆盖环境变量 TSA_LLM_MODEL")
+    p_audit.add_argument("--variant", help="只审计某个亚型，例如 G12D")
+    p_audit.add_argument("--no-variants", action="store_true", help="跳过亚型分析（更快）")
     p_audit.set_defaults(func=cmd_audit)
 
     p_demo = sub.add_parser("demo", help="离线跑通整条管线")

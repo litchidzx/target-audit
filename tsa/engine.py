@@ -28,6 +28,9 @@ class AuditRequest:
     gene: str
     cancer: str          # 癌种为必填参数，系统不设默认癌种
     ensembl_id: str | None = None
+    # 可选：指定具体亚型（如 KRAS 的 G12D）。指定后会额外给出该亚型的
+    # 占比与成药情况；留空则给出整个基因的变异谱与覆盖缺口判断。
+    variant: str | None = None
 
 
 def _collect(
@@ -160,6 +163,7 @@ def run_audit(
     req: AuditRequest,
     connectors: list[Connector],
     llm: LLMProvider | None = None,
+    include_variants: bool = True,
 ) -> AuditCard:
     """执行一次审计。
 
@@ -181,6 +185,18 @@ def run_audit(
         missing_dimensions=missing,
         therapeutic_window=_therapeutic_window(records),
     )
+
+    if include_variants:
+        # 亚型分析失败不影响基因级审计，所以这里吞掉异常只记日志。
+        try:
+            from .variants import analyze as analyze_variants
+
+            card.variant_analysis = analyze_variants(
+                req.gene, req.cancer, selected_variant=req.variant
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("亚型分析失败")
+
     card.verdict, card.headline = _verdict(card)
     if errors:
         card.headline += f"（{len(errors)} 个数据源未返回结果）"

@@ -150,6 +150,38 @@
     return '<div class="dimstrip">' + cells.join("") + "</div>";
   }
 
+  function variantHTML(t) {
+    var a = t.variant_analysis;
+    if (!a) return "";
+    var rows = a.variants.map(function (v) {
+      var drug, cls;
+      if (v.drugs.length) {
+        drug = v.drugs.slice(0, 3).join("、");
+        if (v.drugs.length > 3) drug += " 等 " + v.drugs.length + " 个";
+        cls = "fav";
+      } else if (v.kind !== "point") {
+        drug = "不适用（说明书按外显子描述）";
+        cls = "muted";
+      } else {
+        drug = "—";
+        cls = "muted";
+      }
+      return "<tr><td><b>" + esc(v.name) + "</b></td><td>" + v.cases + "</td><td>" +
+        Math.round(v.fraction * 100) + "%</td><td class=\"" + cls + "\">" + esc(drug) + "</td></tr>";
+    }).join("");
+    if (a.other_variant_count) {
+      rows += '<tr><td class="muted">其他 ' + a.other_variant_count +
+        ' 种低频变异</td><td class="muted">—</td><td class="muted">—</td>' +
+        '<td class="muted">未逐一查询</td></tr>';
+    }
+    return '<div class="sec">亚型分析</div><div class="vbox">' +
+      '<p class="vhead">' + esc(a.headline) + "</p>" +
+      '<table class="vtable"><thead><tr><th>变异</th><th>病例</th><th>占改变</th>' +
+      "<th>获批药物</th></tr></thead><tbody>" + rows + "</tbody></table>" +
+      '<p class="vnote">样本范围 ' + esc(a.study_id) + "，共 " + a.altered_cases +
+      " 例存在改变。" + esc(a.note) + "</p></div>";
+  }
+
   function renderDetail() {
     if (!state.selected) { $("detail").innerHTML = heroHTML(); return; }
     var parts = state.selected.split("|");
@@ -173,6 +205,7 @@
       "<div><span>检出冲突</span><b>" + t.conflicts.length + " 条</b></div></div>" +
       dimensionStrip(t) + "</div>" +
       '<div class="sec">冲突</div>' + conflicts +
+      variantHTML(t) +
       '<div class="sec">证据矩阵</div>' + evidenceHTML(t) + missing +
       '<footer class="btm">生成时间 ' + esc(t.generated_at) +
       " · 每个数值都可点回原始数据源</footer></div>";

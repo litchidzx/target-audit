@@ -100,6 +100,7 @@ class HttpClient:
         use_cache: bool = True,
         retries: int = 3,
         timeout: int = 30,
+        allow_404: bool = False,
     ) -> Any:
         if params:
             url = f"{url}?{urllib.parse.urlencode(params, doseq=True)}"
@@ -130,6 +131,14 @@ class HttpClient:
                     )
                 HttpClient._consecutive_failures = 0
                 return payload
+            except urllib.error.HTTPError as exc:
+                # openFDA 用 404 表示"没有匹配记录"，这是有意义的答案而不是故障，
+                # 所以允许调用方把它当作 None 处理。
+                if allow_404 and exc.code == 404:
+                    return None
+                last_error = exc
+                if exc.code < 500:
+                    break  # 4xx 是请求本身的问题，重试没有意义
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
                 last_error = exc
                 # 连接被拒说明目标整体不可达，不是偶发抖动，重试没有意义。

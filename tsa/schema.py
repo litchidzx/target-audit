@@ -146,6 +146,9 @@ class AuditCard:
     verdict: str = ""
     headline: str = ""
     therapeutic_window: str = "unknown"
+    # 亚型分析（tsa.variants.VariantAnalysis）。放在这里是 Any 以避免
+    # schema 反过来依赖 connectors —— 这一层要保持零依赖。
+    variant_analysis: Any = None
     generated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
     )

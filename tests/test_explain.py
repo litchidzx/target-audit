@@ -45,7 +45,7 @@ class ScriptedProvider:
 
 
 def _kras_conflicts():
-    card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()])
+    card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()], include_variants=False)
     return card.conflicts
 
 
@@ -211,7 +211,7 @@ class TestProviderRegistry(unittest.TestCase):
 
 class TestEngineIntegration(unittest.TestCase):
     def test_run_audit_without_llm_leaves_explanation_empty(self):
-        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()])
+        card = run_audit(AuditRequest(gene="KRAS", cancer="LUAD"), [mock_connector()], include_variants=False)
         self.assertTrue(card.conflicts)
         for conflict in card.conflicts:
             self.assertIsNone(conflict.explanation)
@@ -222,6 +222,7 @@ class TestEngineIntegration(unittest.TestCase):
             AuditRequest(gene="KRAS", cancer="LUAD"),
             [mock_connector()],
             llm=StubProvider(),
+            include_variants=False,
         )
         for conflict in card.conflicts:
             self.assertIsNotNone(conflict.explanation)
