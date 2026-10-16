@@ -52,6 +52,13 @@ BASIS_CONFIRMED = "专家确认"
 
 LIST_FIELDS = ("required", "not_applicable", "downweight", "extra_queries")
 
+# 一条冲突在给定模态下能不能用。刻意不做静默删除：
+# 只有当它涉及的维度**全部**不适用时才剔除，部分不适用只做标注，
+# 让人自己决定采纳与否。悄悄丢证据比留下一条带标注的冲突危险得多。
+APPLICABILITY_OK = "ok"
+APPLICABILITY_FLAGGED = "flagged"
+APPLICABILITY_SUPPRESSED = "suppressed"
+
 
 def modality_label(key: str) -> str:
     return MODALITY_META.get(key, key)
@@ -296,6 +303,34 @@ def resolve(
             if entry not in effective.notes:
                 effective.notes.append(entry)
     return effective
+
+
+def dimension_set(effective: EffectiveMapping | None, field_name: str) -> list[Dimension]:
+    """把映射里某个列表字段转成维度枚举，供引擎使用。"""
+
+    if effective is None:
+        return []
+    out: list[Dimension] = []
+    for item in getattr(effective, field_name):
+        try:
+            out.append(Dimension(item))
+        except ValueError:
+            continue  # 载入时已校验过，这里只是兜底
+    return out
+
+
+def applicability(dimensions, not_applicable: list[Dimension]) -> str:
+    """判断一条冲突在给定模态下是否可用。"""
+
+    dims = [d for d in dimensions]
+    if not dims:
+        return APPLICABILITY_OK
+    excluded = [d for d in dims if d in not_applicable]
+    if not excluded:
+        return APPLICABILITY_OK
+    if len(excluded) == len(dims):
+        return APPLICABILITY_SUPPRESSED
+    return APPLICABILITY_FLAGGED
 
 
 def describe(effective: EffectiveMapping) -> list[str]:

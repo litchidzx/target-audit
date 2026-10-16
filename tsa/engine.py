@@ -13,6 +13,13 @@ from .conflicts import detect_conflicts
 from .connectors.base import Connector, ConnectorError
 from .explain import explain_conflicts
 from .llm.base import LLMProvider
+from .mapping import (
+    APPLICABILITY_FLAGGED,
+    APPLICABILITY_SUPPRESSED,
+    applicability,
+    dimension_set,
+    resolve as resolve_mapping,
+)
 from .schema import AuditCard, Dimension, EvidenceRecord, Polarity
 
 log = logging.getLogger("tsa.engine")
@@ -31,6 +38,10 @@ class AuditRequest:
     # 可选：指定具体亚型（如 KRAS 的 G12D）。指定后会额外给出该亚型的
     # 占比与成药情况；留空则给出整个基因的变异谱与覆盖缺口判断。
     variant: str | None = None
+    # 可选：治疗模态（small_molecule / antibody / adc / protac / cell_therapy / oligo）。
+    # 指定后会启用治疗模态评价标准：某些维度对本模态不适用，
+    # 既不参与覆盖率分母，也不会被当成"证据缺口"。
+    modality: str | None = None
 
 
 def _collect(
@@ -106,16 +117,25 @@ def _verdict(card: AuditCard) -> tuple[str, str]:
     判断按冲突的**类型**给，而不是按严重度阈值。早期版本用"严重度 ≥ 0.7 就判
     高风险"，结果是每个基因都是"高风险"，这个结论不携带任何信息。不同类型的
     冲突对应的是完全不同的问题，判断必须把这个区别保留下来。
+
+    覆盖率的分母会按治疗模态收窄：对 CAR-T 来说"没有小分子成药性"不是缺口，
+    把它算进分母会让报告显示成"证据不足"，而实际上该看的都看了。
     """
-    total_dims = len(list(Dimension))
-    covered = total_dims - len(card.missing_dimensions)
+    excluded = set(card.not_applicable_dimensions)
+    applicable = [d for d in Dimension if d not in excluded]
+    total_dims = len(applicable)
+    missing = [d for d in card.missing_dimensions if d not in excluded]
+    covered = total_dims - len(missing)
+    # 门槛按比例保留原有严格度：七维里要覆盖到五个。
+    threshold = MIN_COVERAGE_FOR_VERDICT / len(list(Dimension)) * total_dims
+    suffix = f"（已按模态设定排除 {len(excluded)} 个不适用维度）" if excluded else ""
 
     if not card.conflicts:
         # 没检出冲突有两种可能：真的没矛盾，或者证据根本不够。
         # 必须把这两种情况区分开，否则数据缺失会被读者误读成"这个靶点没问题"。
-        if covered < MIN_COVERAGE_FOR_VERDICT:
+        if total_dims and covered < threshold:
             return (
-                f"证据不足（仅覆盖 {covered}/{total_dims} 个维度）",
+                f"证据不足（仅覆盖 {covered}/{total_dims} 个维度）{suffix}",
                 f"{card.gene} 未检出矛盾，但当前只取到 {covered} 个维度的证据，"
                 f"不足以支撑任何结论。可能是数据源暂时不可用，建议补齐后重跑。",
             )
@@ -156,6 +176,8 @@ def _verdict(card: AuditCard) -> tuple[str, str]:
             verdict_by_type.get(c.type.value, c.type.value) for c in card.conflicts[1:]
         )
         verdict = f"{verdict}（另有：{others}）"
+    if excluded:
+        verdict += suffix
     return verdict, headline
 
 
@@ -174,6 +196,35 @@ def run_audit(
     conflicts = detect_conflicts(records, gene=req.gene)
     missing = _missing_dimensions(records)
 
+    # 治疗模态评价标准：只有使用者显式指定模态时才启用。
+    # 不指定时行为与之前完全一致 —— 默认路径不该被新功能改变。
+    effective = None
+    not_applicable: list[Dimension] = []
+    if req.modality:
+        effective = resolve_mapping(req.modality, req.cancer, req.gene)
+        not_applicable = dimension_set(effective, "not_applicable")
+        if not_applicable:
+            kept = []
+            for conflict in conflicts:
+                status = applicability(conflict.dimensions, not_applicable)
+                if status == APPLICABILITY_SUPPRESSED:
+                    log.info(
+                        "按模态 %s 剔除冲突 %s：涉及维度对本模态均不适用",
+                        req.modality,
+                        conflict.rule_id or conflict.type.value,
+                    )
+                    continue
+                if status == APPLICABILITY_FLAGGED:
+                    conflict.metadata["mapping"] = (
+                        "本条涉及不适用维度："
+                        + "、".join(
+                            d.value for d in conflict.dimensions if d in not_applicable
+                        )
+                        + "，请按本模态的实际要求判断"
+                    )
+                kept.append(conflict)
+            conflicts = kept
+
     if llm is not None and conflicts:
         explain_conflicts(conflicts, llm, req.gene, req.cancer)
 
@@ -183,6 +234,8 @@ def run_audit(
         records=records,
         conflicts=conflicts,
         missing_dimensions=missing,
+        mapping=effective,
+        not_applicable_dimensions=not_applicable,
         therapeutic_window=_therapeutic_window(records),
     )
 

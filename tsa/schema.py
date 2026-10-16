@@ -149,6 +149,12 @@ class AuditCard:
     # 亚型分析（tsa.variants.VariantAnalysis）。放在这里是 Any 以避免
     # schema 反过来依赖 connectors —— 这一层要保持零依赖。
     variant_analysis: Any = None
+    # 生效的治疗模态评价标准（tsa.mapping.EffectiveMapping），同样用 Any 保持本层零依赖。
+    # 未指定模态时为 None，报告里也就不会出现这一节。
+    mapping: Any = None
+    # 按模态设定不参与判断的维度。覆盖率的分母要据此收窄，
+    # 否则对 CAR-T 这类靶点，"没有小分子成药性"会被误算成证据缺口。
+    not_applicable_dimensions: list[Dimension] = field(default_factory=list)
     generated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
     )

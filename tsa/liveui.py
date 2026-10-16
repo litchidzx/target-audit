@@ -80,6 +80,11 @@ PAGE_CSS = """
       padding:18px 22px;margin:0 0 8px;box-shadow:var(--shadow)}
 .vhead{margin:0 0 6px;font-size:15px;font-weight:600;color:#2b3444;line-height:1.6}
 .vsel{margin:0 0 10px;font-size:13.5px;color:var(--muted)}
+.mapping{margin:0 0 26px}
+.mmod{margin:0 0 12px;font-size:14px}
+.mtitle{margin:14px 0 6px;font-size:12.5px;letter-spacing:.06em;color:var(--faint)}
+.mlist{margin:0;padding-left:20px;font-size:13.5px;line-height:1.7}
+.mlist .src{display:block;font-size:11.5px;color:var(--faint)}
 .vtable{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0 6px}
 .vtable th{text-align:left;font-weight:600;color:var(--faint);font-size:12px;
            border-bottom:1px solid var(--line);padding:6px 10px 6px 0}
@@ -145,6 +150,7 @@ def render_form(
     gene: str = "",
     cancer: str = "",
     variant: str = "",
+    modality: str = "",
     notice: str = "",
     notice_kind: str = "",
     samples: list[tuple[str, str]] | None = None,
@@ -152,6 +158,13 @@ def render_form(
     options = "".join(
         f'<option value="{esc(code)}"{" selected" if code == cancer else ""}>{esc(zh)}（{esc(code)}）</option>'
         for code, zh in cancers
+    )
+    from .mapping import MODALITY_META
+
+    modality_options = "".join(
+        f'<option value="{esc(key)}"{" selected" if key == (modality or "general") else ""}>'
+        f"{esc(label_zh)}</option>"
+        for key, label_zh in MODALITY_META.items()
     )
     sample_html = ""
     if samples:
@@ -188,6 +201,10 @@ def render_form(
         <input id="variant" name="variant" value="{esc(variant)}" list="variant-options"
                placeholder="留空 = 基因级审计" autocomplete="off" spellcheck="false">
         <datalist id="variant-options"></datalist>
+      </div>
+      <div class="field">
+        <label for="modality">治疗模态（可选）</label>
+        <select id="modality" name="modality">{modality_options}</select>
       </div>
       <button class="go" type="submit" id="submit">开始审计</button>
     </div>
@@ -282,6 +299,46 @@ def _dimension_strip(card: AuditCard) -> str:
             f'<i></i>{esc(short_label(dim))}</span>'
         )
     return f'<div class="dimstrip">{"".join(cells)}</div>'
+
+
+def _mapping_html(card: AuditCard) -> str:
+    """评价标准区块。只有指定了治疗模态才会出现。
+
+    把它放在冲突之前，是因为它决定了读者该怎么看后面的冲突：
+    同样一条"成药路径不明"，对小分子是硬伤，对 CAR-T 不适用。
+    """
+
+    effective = getattr(card, "mapping", None)
+    if effective is None:
+        return ""
+    from .mapping import describe, modality_label
+
+    blocks = []
+    titles = {
+        "required": "必须看到的证据",
+        "not_applicable": "不适用（不应当作硬伤）",
+        "downweight": "降权",
+        "extra_queries": "需要额外查证",
+    }
+    for field_name, title in titles.items():
+        items = getattr(effective, field_name)
+        if not items:
+            continue
+        lis = "".join(
+            f"<li>{esc(item)}"
+            f'<span class="src">来源：{esc(effective.source_of(field_name, item))}</span></li>'
+            for item in items
+        )
+        blocks.append(f'<p class="mtitle">{esc(title)}</p><ul class="mlist">{lis}</ul>')
+    notes = "".join(f"<li>{esc(n)}</li>" for n in effective.notes)
+    if notes:
+        blocks.append(f'<p class="mtitle">备注</p><ul class="mlist">{notes}</ul>')
+    body = "".join(blocks) or "<p class='hint'>该模态没有额外调整，按七个维度的通用标准执行。</p>"
+    return (
+        '<div class="sec">评价标准</div>'
+        f'<div class="mapping"><p class="mmod">本次按 <b>{esc(modality_label(effective.modality or "general"))}</b>'
+        f" 的评价标准执行。</p>{body}</div>"
+    )
 
 
 def _variant_html(card: AuditCard) -> str:
@@ -412,6 +469,7 @@ def render_result(card: AuditCard) -> str:
   </div>
   {_dimension_strip(card)}
 </div>
+{_mapping_html(card)}
 <div class="sec">冲突</div>
 {conflict_html}
 {_variant_html(card)}

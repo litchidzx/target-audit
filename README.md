@@ -75,7 +75,7 @@ git clone https://github.com/litchidzx/target-audit.git
 cd target-audit
 
 python run.py doctor        # 先看看环境差什么，它会逐项说明
-python run.py self-test     # 57 项测试，不需要网络
+python run.py self-test     # 66 项测试，不需要网络
 python run_web.py           # 起一个网页界面，浏览器打开 127.0.0.1:8000
 ```
 
@@ -153,7 +153,7 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 
 ```bash
 target-audit.exe audit KRAS --cancer PAAD --variant G12D --out report.md
-target-audit.exe self-test          # 57 项单元测试，不需要网络
+target-audit.exe self-test          # 66 项单元测试，不需要网络
 target-audit.exe doctor             # 逐项检查环境，告诉你缺什么、怎么补
 ```
 
@@ -447,7 +447,7 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── fetch_reference_data.py  参考数据下载
 │   ├── make_figures.py / make_icon.py / make_bp_doc.py   图表、图标与文档
 │   └── ...
-├── tests/                    57 项单元测试
+├── tests/                    66 项单元测试
 ├── data/mappings/            评价标准表（default.json 内置，user.json 由使用者覆盖）
 ├── docs/                     GitHub Pages 站点（构建产物）
 ├── paper/                    项目书与商业计划书

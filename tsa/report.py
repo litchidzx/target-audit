@@ -90,6 +90,30 @@ def _variant_section(card: AuditCard) -> list[str]:
     return out
 
 
+def _mapping_section(card: AuditCard) -> list[str]:
+    """评价标准一节。指定治疗模态时才出现。
+
+    存在的意义是让读者知道**这份报告是用哪套标准得出的**：
+    哪些维度按本模态不适用、额外查了什么、每条标准是谁定的。
+    评价标准不能是唯一一处没有出处的东西。
+    """
+
+    effective = getattr(card, "mapping", None)
+    if effective is None:
+        return []
+    from .mapping import describe, modality_label
+
+    out = ["## 评价标准", ""]
+    out.append(
+        f"本次按**{modality_label(effective.modality or 'general')}**的评价标准执行。"
+    )
+    out.append("")
+    # describe 的第一行是模态标题，上面已经写过，跳过它即可。
+    out.extend(describe(effective)[1:])
+    out.append("")
+    return out
+
+
 def render_markdown(card: AuditCard) -> str:
     out: list[str] = []
     out.append(f"# 靶点审计 · {card.gene} / {card.cancer}")
@@ -103,6 +127,8 @@ def render_markdown(card: AuditCard) -> str:
     out.append(f"*生成时间 {card.generated_at}*")
     out.append("")
 
+    out.extend(_mapping_section(card))
+
     out.append("## 冲突")
     out.append("")
     if not card.conflicts:
@@ -114,6 +140,8 @@ def render_markdown(card: AuditCard) -> str:
         out.append(f"**{c.headline}**")
         out.append("")
         out.append(f"- 涉及维度：{_conflict_dims(c)}")
+        if (c.metadata or {}).get("mapping"):
+            out.append(f"- 模态提示：{c.metadata['mapping']}")
         out.append(f"- 严重度：{c.severity:.2f}")
         out.append("- 候选原因（受控词表）：" if c.explanation else "- 候选原因（受控词表，待解释层确认）：")
         for cause in c.cause_candidates:

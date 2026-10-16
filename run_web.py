@@ -33,6 +33,7 @@ from tsa.connectors.base import ConnectorError  # noqa: E402
 from tsa.connectors.cbioportal import CBioPortalConnector  # noqa: E402
 from tsa.engine import AuditRequest, run_audit  # noqa: E402
 from tsa.liveui import full_css, render_error, render_form, render_result  # noqa: E402
+from tsa.mapping import MODALITY_META  # noqa: E402
 from tsa.paths import asset_path  # noqa: E402
 from tsa.webexport import CANCER_ZH  # noqa: E402
 
@@ -175,6 +176,7 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
                         gene=(params.get("gene", [""])[0] or "").upper(),
                         cancer=(params.get("cancer", [""])[0] or ""),
                         variant=(params.get("variant", [""])[0] or "").upper(),
+                        modality=(params.get("modality", [""])[0] or "").strip().lower(),
                         samples=SAMPLES if not mock else None,
                     )
                 )
@@ -185,6 +187,18 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
             gene = (params.get("gene", [""])[0] or "").strip().upper()
             cancer = (params.get("cancer", [""])[0] or "").strip().upper()
             variant = (params.get("variant", [""])[0] or "").strip().upper() or None
+            modality = (params.get("modality", [""])[0] or "").strip().lower() or None
+            if modality in ("", "general"):
+                modality = None  # 通用标准等同于不指定，避免报告里多出一节空话
+            elif modality not in MODALITY_META:
+                self._send(
+                    render_error(
+                        f"暂不认识治疗模态 {modality}。",
+                        hint="可用取值：" + "、".join(f"{k}（{v}）" for k, v in MODALITY_META.items()),
+                    ),
+                    status=400,
+                )
+                return
 
             if not GENE_RE.match(gene):
                 self._send(
@@ -207,7 +221,7 @@ def make_handler(mock: bool, cancers: list[tuple[str, str]]):
 
             try:
                 card = run_audit(
-                    AuditRequest(gene=gene, cancer=cancer, variant=variant),
+                    AuditRequest(gene=gene, cancer=cancer, variant=variant, modality=modality),
                     connectors,
                 )
             except ConnectorError as exc:
