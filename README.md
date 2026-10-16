@@ -28,12 +28,17 @@
 | **在线工作台** | <https://litchidzx.github.io/target-audit/> | 只要浏览器 |
 | **魔搭创空间** | <https://www.modelscope.cn/studios/litchidzx/target-audit> | 只要浏览器（国内访问更快） |
 | **桌面版（免安装）** | [从 Releases 下载](https://github.com/litchidzx/target-audit/releases/latest) | Windows，什么都不用装 |
+| **桌面版命令行** | `target-audit.exe audit KRAS --cancer PAAD --out report.md` | 从 Releases 下载 |
 | **本地网页界面** | `python run_web.py` → <http://127.0.0.1:8000> | Python 3.10+，可审计任意基因 |
 | **本地跑一个靶点** | `python run.py audit KRAS --cancer LUAD` | Python 3.10+ |
+| **只审计一个亚型** | `python run.py audit KRAS --cancer PAAD --variant G12D` | Python 3.10+ |
 | **离线查看已有结果** | 下载仓库后双击 `docs/index.html` | 什么都不用装 |
 
 **几种方式的分工**：两个在线站点是同一套静态文件的双地部署，**只能看已算好的靶点**；
 桌面版、本地网页界面与命令行**能审计任意基因**。全都不需要注册。
+
+**想直接看亚型分析**：打开任一在线站点或桌面版，点开 KRAS / 胰腺癌，
+结果页里有一节「亚型分析」。
 
 ---
 
@@ -45,6 +50,13 @@
 <https://www.modelscope.cn/studios/litchidzx/target-audit>，
 左侧挑一个靶点，或直接搜 `KRAS`。
 用癌种和规则标签筛选，例如只看 `R1` 治疗窗狭窄命中的靶点。
+
+操作步骤：
+
+1. 左侧列表按癌种分组，点标题可以折叠；顶部搜索框按基因符号过滤
+2. 点任意一个靶点，右侧展开这一靶点的审计卡片
+3. 卡片内依次是结论、冲突清单、七个维度的证据矩阵、亚型分析与数据来源
+4. 每条证据后面都标了出处，可以直接点回原始数据库
 
 放在本地也能用：下载仓库后双击 `docs/index.html`。页面不依赖网络，
 所有结果在构建时已经算好并固化。
@@ -68,8 +80,28 @@ python run_web.py           # 起一个网页界面，浏览器打开 127.0.0.1:
 网页界面里输入基因符号与癌种，服务端实时跑审计。也可以走命令行：
 
 ```bash
-python run.py audit KRAS --cancer LUAD     # 首次约 20-30 秒，之后走缓存
+python run.py audit KRAS --cancer LUAD                  # 首次约 30-45 秒，之后走缓存
+python run.py audit KRAS --cancer PAAD --variant G12D   # 只看这一个亚型
+python run.py audit KRAS --cancer PAAD --no-variants    # 跳过亚型分析，更快
 ```
+
+#### 网页界面的操作步骤
+
+打开 <http://127.0.0.1:8000> 后：
+
+1. **基因符号**填 `KRAS`
+2. **目标癌种**下拉里选「胰腺癌（PAAD）」
+3. **亚型（可选）**这一栏会自动弹出该基因在该癌种里的实际变异列表
+   （如 `G12D`、`G12V`、`G12R`… 后面标着病例数）。
+   可以直接从列表里挑，也可以**自己输入**一个罕见位点，比如 `Q61H`。
+   **留空则做基因级审计**，同时仍然给出变异谱与覆盖缺口判断。
+4. 点「开始审计」，等半分钟左右出结果。
+
+结果页里除了原有的冲突清单与证据矩阵，还有一节「亚型分析」，
+列出各变异的占比与获批药物情况，以及覆盖率。
+
+> 界面上会明确写出**哪些维度能亚型化、哪些不能** ——
+> DepMap 敲的是整个基因，与具体位点无关，所以肿瘤依赖性不会因为换了亚型而改变。
 
 ### 首次运行会遇到什么
 
@@ -80,7 +112,11 @@ python run.py audit KRAS --cancer LUAD     # 首次约 20-30 秒，之后走缓�
 | 引擎、七条冲突规则、解释层兜底 | 无 | ✅ 不需要网络 |
 | gnomAD 人类遗传学耐受性 | 4.6MB 约束表 | ✅ 首次使用时自动下载 |
 | 临床相关性、正常组织暴露、成药性、在靶毒性 | 四个公开接口 | ✅ 需要联网 |
+| 亚型分析（变异谱 + 亚型成药） | cBioPortal + openFDA 说明书 | ✅ 需要联网 |
 | 肿瘤依赖性、跨癌种选择性 | DepMap 约 400MB | ⚠️ 需手动下载，见下文 |
+
+> 桌面版已内置紧凑版 DepMap 矩阵（13.8MB），所以**下载即七个维度齐全**；
+> 源码方式需要自行准备，见第八节。
 
 **缺任何一项都只会让对应维度标记为"证据不足"，其余维度照常工作。**
 覆盖不足 5/7 个维度时，系统会明确说明"证据不足，不足以支撑任何结论"，
@@ -96,7 +132,28 @@ docker run --rm target-audit audit KRAS --cancer LUAD --mock
 ### 方式四：下载可执行程序（Windows，不需要装 Python）
 
 从 [Releases](https://github.com/litchidzx/target-audit/releases/latest)
-下载 `target-audit-windows-x64.zip`，解压后**双击 `target-audit.exe`**，浏览器会自动打开。
+下载 `target-audit-windows-x64.zip`，解压到任意目录，**双击 `target-audit.exe`**。
+程序在后台启动本地服务并自动打开应用窗口，**不会弹出命令行黑框**。
+
+操作步骤：
+
+1. 解压压缩包，双击 `target-audit.exe`
+2. 首次启动约 3-5 秒，随后出现应用窗口（若窗口没自动出现，等几秒再双击一次，
+   或双击同目录下的 `启动.cmd`）
+3. 在窗口里填基因符号、选癌种，亚型一栏留空或从下拉列表里挑
+4. 点「开始审计」，结果直接显示在同一窗口里
+
+> **整个文件夹要一起保留。** exe 依赖同目录下的库文件与 `data/`，单独把
+> `target-audit.exe` 拖到桌面会启动失败。想放桌面的话，右键 exe →
+> 「发送到」→「桌面快捷方式」。
+
+也可以在命令行里直接调用同一个程序，拿到 Markdown 报告：
+
+```bash
+target-audit.exe audit KRAS --cancer PAAD --variant G12D --out report.md
+target-audit.exe self-test          # 37 项单元测试，不需要网络
+target-audit.exe doctor             # 逐项检查环境，告诉你缺什么、怎么补
+```
 
 Python 是解释型语言，源码必须有解释器才能运行；打包版把解释器和依赖一起装了进去，
 所以使用者不需要任何环境准备——这也是普通软件能双击运行的原因。
@@ -108,8 +165,9 @@ python scripts/build_exe.py            # 目录模式，产出压缩包
 python scripts/build_exe.py --onefile  # 单文件 exe
 ```
 
-参考数据不打进包里。把 DepMap 文件放到 exe 旁边的 `data/depmap/` 即可启用
-肿瘤侧两个维度；gnomAD 约束表会在首次查询时自动下载。
+打包脚本会把紧凑版 DepMap 矩阵（13.8MB）与 gnomAD 约束表（4.6MB）一并放进包里，
+所以下载即七个维度齐全。若要换成更新版的官方数据，把 DepMap 文件放到
+exe 旁边的 `data/depmap/` 覆盖即可。
 
 ### 环境要求
 
@@ -180,7 +238,52 @@ python scripts/build_exe.py --onefile  # 单文件 exe
 
 ![冲突规则命中](assets/figures/rule-hits.png)
 
-## 五、真实数据运行结果
+## 五、亚型分析
+
+**同一句"这个基因有获批药物"，在不同癌种里的含义可以差几十倍。** 因为药往往是
+亚型特异的：KRAS 的获批抑制剂只打 G12C，而胰腺癌里主要是 G12D ——
+"KRAS 有药"这句话，对胰腺癌患者基本用不上。
+
+亚型分析把这层拆开。输入基因和癌种后，系统给出该癌种里实际发生的变异构成、
+每个变异的获批药物情况，最后给出一个直接可用的数字：
+**这个队列里有多大比例的变异，是现有获批药物覆盖得到的。**
+
+实测结果：
+
+| 靶点 / 癌种 | 覆盖率 | 说明 |
+|---|---|---|
+| BRAF / 结肠癌 | 73% | V600E 是主要改变，有多个获批药 |
+| KRAS / 肺腺癌 | 41% | G12C 占 41%，有获批药 |
+| EGFR / 肺腺癌 | 34% | L858R 有药；外显子 19 缺失需人工核对 |
+| KRAS / 胰腺癌 | 0% | 主要改变 G12D 目前没有获批药 |
+| TP53 / 胰腺癌 | 0% | 变异散落在各位置（最大仅占 4%），不存在单一用药可能 |
+
+**它不是第八个维度，而是叠加在基因级审计之上的一层。** 有些维度可以亚型化，
+有些不能，这个边界在界面上也写明，避免让人误以为选了亚型之后七个维度都变了。
+
+可以亚型化的：**临床相关性**（变异谱本身就是它的一部分）、
+**成药性**（按亚型查说明书，得到真实覆盖情况）。
+
+不能亚型化的：**肿瘤依赖性、跨癌种选择性**（DepMap 敲的是整个基因，与具体位点无关）、
+**正常组织暴露、人类遗传学耐受性**（本身就是基因级）。
+
+### 三个必须处理的细节
+
+**变异编号必须与文献一致。** GDC 按转录本注释，同一个变异会命中十几个转录本、
+编号各不相同（实测一个 BRAF 变异被标成 A444Cfs*9 / A404Cfs*9 / A85Cfs*9 …），
+而且它标记的"规范转录本"与社区通用写法不一致 —— BRAF 的 V600E 会写成 V640E。
+编号一旦对不上，就查不到对应的药物。因此变异谱取自 cBioPortal，
+它输出的是 V600E、G12D 这类通用写法。
+
+**结构性变异不能用坐标检索。** 缺失、插入、移码在说明书里按外显子或区域描述，
+例如奥希替尼写的是 "EGFR exon 19 deletions"，而不是 `E746_A750del`。
+所以这类变异**查不到不等于没有药**，系统把它们标为"不适用"并排除出覆盖率分母，
+避免给出错误结论。
+
+**说明书只收录已获批药物。** 因此亚型分析回答的是"现在能不能用上药"，
+不是"有没有人在研发"。临床阶段的候选药不会体现。
+
+## 六、真实数据运行结果
 
 九个靶点、七个公开数据源，**七条规则全部触发过**：
 
@@ -222,7 +325,7 @@ python scripts/build_exe.py --onefile  # 单文件 exe
 4. **分位方向不能想当然。** DepMap 的 gene effect 越负表示越依赖，
    与"分位越高越有利"的语义相反，不翻转会把强依赖基因判成不利。
 
-## 六、技术架构
+## 七、技术架构
 
 六层：输入 → 采集 → 标准化 → 冲突检测 → 解释 → 汇总
 
@@ -261,7 +364,7 @@ TSA_LLM_PROVIDER=ollama TSA_LLM_MODEL=qwen3:8b python run.py audit KRAS --cancer
 不过校验就重试一次，再不过就降级到规则层的候选原因。**任何情况下报告都是完整的，
 不会出现没有依据的结论。**
 
-## 七、DepMap 参考数据
+## 八、DepMap 参考数据
 
 肿瘤侧两个维度（肿瘤依赖性、跨癌种选择性）依赖 DepMap 的基因效应矩阵。
 它不随仓库分发，需要单独下载约 400MB：
@@ -273,11 +376,13 @@ TSA_LLM_PROVIDER=ollama TSA_LLM_MODEL=qwen3:8b python run.py audit KRAS --cancer
 **缺少它时系统会降级为缺少这两个维度并明确标注，不会报错退出** ——
 这是刻意的设计：七个数据源里挂掉两三个是常态，不该让整个审计失败。
 
-## 八、工作台与静态站点
+## 九、工作台与静态站点
 
 `docs/` 是构建产物，纯静态，可直接托管在 GitHub Pages。
 审计结果在构建时算好并固化，**演示现场不依赖网络**，
 也不会因为某个外部接口抽风而演示失败。
+
+仓库自带的这一份收录 **35 个靶点、7 个癌种**，七条规则全部至少命中过一次。
 
 重新生成：
 
@@ -288,7 +393,7 @@ TSA_OFFLINE=1 python scripts/build_site.py --out docs   # 只读缓存重放
 node tests/web_smoke.mjs                         # 无浏览器环境下验证界面
 ```
 
-## 九、边界与局限
+## 十、边界与局限
 
 本系统为面向科研的靶点证据整理工具，**不输出诊断、治疗或用药建议**。
 
@@ -300,10 +405,12 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
   这是人为定义的序，报告中均已标明；
 - 系统不重复建设证据聚合层，而是在既有基础设施之上构建判断层。
 
-## 十、目录结构
+## 十一、目录结构
 
 ```
 ├── run.py                    命令行入口
+├── run_web.py                本地网页界面（实时审计任意基因）
+├── app_entry.py              打包入口：双击开界面，带子命令则走命令行
 ├── tsa/
 │   ├── schema.py             统一证据模型
 │   ├── dimensions.py         维度元数据（方向定义的唯一出处）
@@ -311,22 +418,39 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 │   ├── conflicts.py          七条冲突检测规则
 │   ├── engine.py             编排与判断
 │   ├── explain.py            解释层：提示词、校验、重试、降级
+│   ├── variants.py           亚型分析：变异谱、覆盖缺口、可亚型化边界
 │   ├── report.py             Markdown 报告
-│   ├── webexport.py          静态 HTML 渲染
+│   ├── webexport.py          静态站点导出
+│   ├── liveui.py             实时界面服务端渲染
+│   ├── depmapbin.py          DepMap 矩阵的紧凑二进制读写
+│   ├── paths.py              只读资源与可写数据的路径解析
 │   ├── mock.py               离线假数据
 │   ├── llm/                  模型接入层（不绑定服务商）
-│   └── connectors/           七个数据源
+│   ├── webassets/            界面资源（HTML / CSS / JS / 图标）
+│   └── connectors/           七个数据源 + 亚型数据源
+│       ├── depmap.py         肿瘤依赖性与跨癌种选择性
+│       ├── tcga.py           临床相关性
+│       ├── hpa.py            正常组织暴露
+│       ├── gnomad.py         人类遗传学耐受性
+│       ├── chembl.py         成药性
+│       ├── faers.py          经验性在靶毒性
+│       ├── cbioportal.py     变异谱（亚型分析）
+│       └── variant_drugs.py  亚型获批药物（说明书检索）
 ├── scripts/
 │   ├── build_site.py         生成静态站点
+│   ├── build_exe.py          打包可执行程序
+│   ├── pack_depmap.py        DepMap CSV -> 紧凑二进制
 │   ├── cross_cancer.py       跨癌种横向比较
-│   └── fetch_reference_data.py
+│   ├── fetch_reference_data.py  参考数据下载
+│   ├── make_figures.py / make_icon.py / make_bp_doc.py   图表、图标与文档
+│   └── ...
 ├── tests/                    37 项单元测试
 ├── docs/                     GitHub Pages 站点（构建产物）
-├── paper/                    项目书
+├── paper/                    项目书与商业计划书
 └── examples/                 Markdown 示例报告
 ```
 
-## 十一、数据来源
+## 十二、数据来源
 
 全部为公开数据，不涉及患者隐私，不需要伦理审批。
 
@@ -338,6 +462,8 @@ node tests/web_smoke.mjs                         # 无浏览器环境下验证�
 | gnomAD | 人群遗传约束指标 |
 | ChEMBL | 生物活性物质与靶点机制 |
 | openFDA FAERS | 药品不良反应自发上报 |
+| cBioPortal | 癌种特异的变异谱与病例数（亚型分析） |
+| openFDA 药品说明书 | 已获批适应症，按亚型精确检索（亚型分析） |
 
 ---
 

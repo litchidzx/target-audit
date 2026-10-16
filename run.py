@@ -96,7 +96,14 @@ def cmd_demo(args):
 def cmd_self_test(args):
     import unittest
 
-    suite = unittest.defaultTestLoader.discover(str(Path(__file__).parent / "tests"))
+    # 打包后 tests/ 与 run.py 一起放在程序目录里，路径规则相同；
+    # 但要先确认它真的在，否则 discover 会直接抛 ImportError，
+    # 在图形界面的打包版里会变成一个等用户点确定的错误框。
+    tests_dir = Path(__file__).resolve().parent / "tests"
+    if not tests_dir.is_dir():
+        print(f"找不到测试目录：{tests_dir}")
+        return 1
+    suite = unittest.defaultTestLoader.discover(str(tests_dir))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     return 0 if result.wasSuccessful() else 1
 

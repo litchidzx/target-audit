@@ -80,6 +80,10 @@ def main(argv: list[str] | None = None) -> int:
         # 这样 paths.asset_path("tsa", "webassets") 在两种运行方式下都成立。
         "--add-data",
         f"{assets}{SEP}tsa/webassets",
+        # 单元测试也打进去，这样打包版自己就能跑 `target-audit.exe self-test`
+        # 自证可用（评审拿到的是 exe，不是源码，得让它能自己验自己）。
+        "--add-data",
+        f"{ROOT / 'tests'}{SEP}tests",
         # 这几个模块只有开发脚本用得到，排除后体积明显下降
         "--exclude-module",
         "matplotlib",
